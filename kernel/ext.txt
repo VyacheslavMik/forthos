@@ -1,0 +1,476 @@
+"\\                                                                    vandys
+\\ extend.f
+\\       More CORE-ish stuff not implemented in kernel.f
+
+\\ Return canonical TRUE/FALSE values
+-1 constant true
+0 constant false
+
+\\ Emulate FIG check for compiling
+: ?comp   compiling? 0= abort\" Compile only\"   ; immediate
+
+\\ Emulate FIG compile stack checking
+: ?pairs   = not abort\" Mismatched control structure\"   ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Get next extended key event
+\\ For our encoding, all chars except Escape are returned directly.
+\\ Escape is encoded as 256 + the following key
+: ekey ( -- u )
+    key dup 27 = if   drop 256 key +   then   ;
+
+\\ Tell if there is data available via ekey
+\\ Note that for an escape sequence, we return true as soon as the
+\\  escape is typed, not when the complete sequence is available
+\\  via ekey.  A bug, probably.
+: ekey? ( -- bool )   key?   ;
+
+\\ Convert ekey value to a simple character
+: ekey>char ( u -- u false | c true )   dup 256 <   ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ TTY operations, using TTY driver vectors
+: page   3 'ttyops @execute   ;         \\ Clear screen
+: at-xy   4 'ttyops @execute   ;        \\ Position cursor
+: blot   drop 5 'ttyops @execute   ;    \\ Clear to end of line
+: inv-on   1 6 'ttyops @execute   ;     \\ Start standout
+: inv-off   0 6 'ttyops @execute   ;    \\ End standout
+: putpage   8 'ttyops @execute   ;      \\ Bulk put to TTY screen
+
+\\ Print number in hex without changing selected base
+: h. ( u -- )   base @ swap   hex .   base ! ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Greater than
+: > ( n n -- bool )  swap <   ;
+
+\\ Greater than or equal
+: >= ( n n -- bool )   < not   ;
+
+\\ Less than or equal
+: <= ( n n -- bool )   > not   ;
+
+\\ Put byte at HERE and advance
+: c, ( c -- )   here c! 1 allot   ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Initialize to blanks
+: blank ( a u -- )   bl fill   ;
+
+\\ Pick up code address within compilation
+: [']   ' [compile] literal   ; immediate compile-only
+
+\\ Patch compiled entry to jump to assembly code
+: (;code)   r> last @ name> call!   ;
+
+\\ Define building action for a word
+: does>   (compile) (;code)   ['] doLIST call,   (compile) cell+
+ ; immediate compile-only
+
+\\ defer/is
+: (unresolved)   1 abort\" Unresolved word\"   ;
+: defer   token $,n overt   ['] doLIST call,
+ ['] (unresolved) , 0 , ['] (;) ,   ;
+: is ( cfa -- )   2 cells +   ' 2 cells +   ['] branch over !   cell+ !
+ ;
+: :noname ( -- cfa )   last off   here   ['] doLIST call,   ]   !csp ;
+
+
+
+
+\\                                                                    vandys
+: vocabulary ( -- )
+   token $,n overt   ['] doLIST call,   ['] doVOC ,   here 0 ,
+   current cell+ dup @   ,   ! ;
+
+: also ( -- )   context dup cell+ #VOCS 1- cells move   ;
+: -also ( -- )   context cell+ cell+ @ 0= abort\" Order empty\"
+   context dup cell+ swap #VOCS 1- cells move
+   context #VOCS 1- cells + off ;
+
+: (.voc) ( ca -- )   ?dup if   voc>nfa 1 spaces .id   then ;
+
+: order ( -- )   .\" Search: \"
+   context #VOCS 0 do   dup i cells + @ (.voc)   loop drop cr
+   .\" Definitions: \" current @ (.voc) cr   ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Set vocabulary to receive definitions
+: definitions   context @ current !   ('endDef) @execute ;
+
+\\ \"only\" is defined in kernel.f, as it is needed by the metacompilation
+\\   process.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Push string pointer and count; implement by mapping c\"
+: s\"   [compile] c\" (compile) count   ; immediate compile-only
+
+\\ No-op
+: nop   ;
+
+\\ Create namespace for drivers
+vocabulary drivers
+
+\\ Namespace for OS functions
+vocabulary os
+
+\\ Non-core extensions
+vocabulary extensions
+
+\\ Filesystem
+vocabulary fs
+
+
+
+
+
+
+
+\\                                                                    vandys
+( Case Words )
+( Found in Taygeta archives, ported from FIG to eForth by Andy Valencia )
+
+: (of)   over = if   drop r> cell+ >r   else   r> @ >r   then   ;
+
+: case   csp @ !csp 4   ;  immediate compile-only
+
+: of   4 ?pairs   (compile) (of)   here 0 , 5   ; immediate compile-only
+
+: endof 5 ?pairs   (compile) branch
+ here 0 ,   swap [compile] then   4   ; immediate compile-only
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: endcase   4 ?pairs
+ (compile) drop
+ begin sp@ csp @ <> while
+  [compile] then
+ repeat   csp !   ; immediate compile-only
+
+( CASE   1 OF do something ENDOF {repeat as necessary} )
+( may do something if no case match ENDCASE )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ \"Conversion\" to units of characters
+: chars   ;
+: char+   1+   ;
+: char-   1-   ;
+
+\\ Prepare to EXIT from a routine from within a loop
+\\  (drop loop address and low and high parameters for loop...
+\\   restore return address from this word after dropping them.)
+: unloop   r> r> drop r> drop r> drop >r   ;
+
+\\ Process triples on stack
+: 3dup ( n1 n2 n3 -- n1 n2 n3 n1 n2 n3 )   >r 2dup r@ -rot r> ;
+: 3drop ( n1 n2 n3 -- )   2drop drop ;
+
+: (rollback) ( n ... count -- ... n )   abs
+   dup tmp !   begin ?dup while
+      swap >r   1- repeat
+   tmp @ begin ?dup while   r> -rot   1- repeat ;
+: roll ( ... n count -- ...n... )   dup 0< if   (rollback) exit   then
+   dup tmp !   begin ?dup while   1- rot >r   repeat
+   tmp @ begin ?dup while   1- r> swap   repeat ;
+
+
+
+\\                                                                    vandys
+: evaluate ( a u -- )
+   >r >r blk @ #tib @ tib @ >in @
+   'prompt @ ['] nop 'prompt !
+   0 blk ! r> tib ! r> #tib !
+   0 >in !   eval
+   'prompt ! >in ! tib ! #tib !
+  blk !   ;
+
+create fence
+here _fence !  0 ,
+
+: (forget-entries) ( nfap -- )   begin   dup @ ?dup   while
+      tmp @ over <= if   nfa>lfa @ over !   else   nip nfa>lfa   then
+   repeat   drop ;
+: forget   ' ca>nfa dup fence @ <= abort\" Below fence\"
+   tmp !   current begin   cell+ dup @ ?dup   while
+      tmp @ over <= if   cell+ @ over !   cell-   else
+         nip dup  (forget-entries)   then
+   repeat drop   tmp @ nfa>cfa cp ! ;
+
+
+
+
+
+\\ Some numeric utilities, word-oriented dumping                      vandys
+: s>d ( u -- d )   0 ;
+
+: 0> ( u -- bool )   0 >   ;
+: 0<> ( u -- bool )   0 = not   ;
+
+: d= ( xd1 xd2 -- bool )   >r rot = swap r> = and   ;
+
+: (dumpw) ( a u -- )
+   base @ -rot   hex tuck   0 do
+      i cells over +   i 4 mod 0= if   dup 8 u.r .\" : \"   then
+      @ 8 u.r   i 1+ 4 mod 0= if   cr   else   bl emit   then
+   loop drop   4 mod if cr then   base ! ;
+: dumpw ( a u -- )   cr (dumpw) ;
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Compile time \"char\"
+: [char]   char [compile] literal   ; immediate
+
+\\ FPC/F83 utility words
+: bounds ( a n -- a' a )   over + swap   ;
+: (exec:) ( n -- | Returns to caller of calling word )
+ cells r> + @execute   ;
+: exec:   10000 gensusp !   (compile) (exec:) ; immediate
+
+\\ Conditional number parsing
+: number? ( a -- n T | F )   'number @ catch 0=   ;
+
+\\ Other variations of unsigned compare
+: u>   u<= not   ;
+: u>=   u< not   ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+code bcmp ( a1 a2 n -- <bool> )
+ ecx pop
+ edi pop
+ eax pop
+ esi push eax esi mov
+ repz byte cmps
+ 3 $ jne
+ 1 $ jecxz
+3 $:
+ 1 # eax mov
+ 2 $ jmp
+1 $: 0 # eax mov
+2 $:
+ esi pop
+ eax push
+ next c;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+code _strpos ( a ptr u -- n )
+\\             16  12 8
+ 4 [esp] eax mov   esi push   eax push
+
+1 $:   8 [esp] ecx mov   ecx ecx or   4 $ jle
+ ecx ecx xor   16 [esp] esi mov   0 [esi] cl mov   esi inc
+ 12 [esp] edi mov   repz byte cmps
+ 2 $ jne   5 $ jecxz
+
+2 $: 8 [esp] dec   12 [esp] inc   1 $ jmp
+
+5 $: 12 [esp] eax mov   ebx pop   ebx eax sub   3 $ jmp
+
+4 $: eax pop   -1 # eax mov
+
+3 $: esi pop   12 # esp add   eax push   next    c;
+
+: strpos ( a ptr u -- n )   rot dup >r -rot   r> c@ 1-   - _strpos ;
+
+
+
+
+
+
+\\                                                                    vandys
+code _strrpos ( a ptr u -- ptr' )
+\\              12   8 4
+ esi push
+
+1 $:   4 [esp] ecx mov   ecx ecx or   4 $ jle
+ ecx ecx xor   12 [esp] esi mov   0 [esi] cl mov   esi inc
+ 8 [esp] edi mov   repz byte cmps
+ 2 $ jne   5 $ jecxz
+
+2 $: 4 [esp] dec   8 [esp] dec   1 $ jmp
+
+5 $: 4 [esp] eax mov   eax dec   3 $ jmp
+
+4 $: -1 # eax mov
+
+3 $: esi pop   12 # esp add   eax push   next    c;
+
+: strrpos ( a ptr u -- n )   rot dup >r -rot   r> c@
+   1- -   swap over + 1- swap   _strrpos ;
+
+
+
+
+
+\\ Conditional compilation constructs                                vvandys
+: ($streq) ( s1 s2 -- ? )   2dup c@ swap c@ - if   2drop false exit   then
+   char+ swap count 0 do   2dup c@ swap c@ - if
+      unloop 2drop false exit   then
+   char+ swap char+ loop   2drop true ;
+: (unhook) ( -- )   tmp1 @ 'eval ! ;
+: ($preproc) ( a -- )   c\" [if]\" over ($streq) if
+      drop   1 tmp2 inc   exit   then
+   c\" [else]\" over ($streq) if   drop
+      tmp2 @ 1 = if (unhook) then   exit then
+   c\" [then]\" ($streq) if   tmp2 dec
+      tmp2 @ 0= if (unhook) then   then ;
+: (prehook) ( -- )   'eval @ tmp1 !   1 tmp2 !
+   ['] ($preproc) 'eval ! ;
+: [if] ( ? -- )   0= if   (prehook)   then ; immediate
+
+: [else] ( -- )   (prehook) ; immediate
+
+: [then] ( -- )   ; immediate
+
+: [ifdef] ( -- )   token name? nip   [compile] [if] ; immediate
+: [ifndef] ( -- )   token name? nip 0=   [compile] [if] ; immediate
+
+
+
+\\ Double math                                                       vvandys
+code d+ ( d1 d2 -- d )   edx pop   eax pop   4 [esp] eax add
+   0 [esp] edx adc   eax 4 [esp] mov   edx 0 [esp] mov   next c;
+code d< ( d1 d2 -- ? )   ebx pop   eax pop   edx pop   ecx pop
+   ebx edx cmp   1 $ je   2 $ jg
+3 $:   true push# next
+1 $:   eax ecx cmp   2 $ je   3 $ jl
+2 $:   false push# next c;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

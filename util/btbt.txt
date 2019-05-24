@@ -1,0 +1,26 @@
+"\\ B-tree of B-trees                                                  vandys
+\\ Key returns a B-tree; an empty B-tree is created on first reference
+only extensions definitions
+
+Btree -> subclass: BtBtree
+BtBtree -> :method @ { key self -- bt }
+   key self super-> @ if   exit   then
+   Btree -> new { bt }   bt key self super-> !   bt method;
+BtBtree -> :method ! ( val key self -- )
+   1 abort\" BtBtree:! not implemented\" method;
+BtBtree -> :method .elems ( self -- )   0   ['] (.leaf)   rot -> do method;
+BtBtree -> :method in? ( key self -- ? )
+   super-> @   dup if nip then method;
+
+
+
+
+
+
+
+
+
+
+
+
+"

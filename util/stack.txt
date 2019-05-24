@@ -1,0 +1,26 @@
+"\\ Stack--pushdown data structure built on top of a List              vandys
+only extensions definitions
+
+List -> subclass: Stack
+
+Stack -> :method push ( elem self -- )   -> add method;
+Stack -> :method peek ( self -- elem )   dup List>nelem @
+   dup 0= abort\" empty\"   1- cells swap List>elems @ + @ method;
+Stack -> :method pop ( self -- elem )   dup -> peek
+   swap List>nelem dec method;
+Stack -> :method do ( arg 'fn self -- )   super-> reverseDo method;
+
+Stack -> :method reverseDo ( arg 'fn self -- )   super-> do method;
+
+
+
+
+
+
+
+
+
+
+
+
+"

@@ -1,0 +1,51 @@
+"\\                                                                    vandys
+Notes on use of debugger.
+
+Debugging is implemented via a hook in the compiler which inserts a
+debug hook after each virtual machine \"instruction\".  Thus, the code
+generated with debug is roughly twice as large and certainly more than
+twice as slow.
+
+All debug words are under the \"extensions\" vocabulary.  To enable
+debug code generation, use the [+debug] word.  To disable it,
+[-debug] is available.
+
+Code will run normally (though slower) until you set a breakpoint.
+This is done with \"debug <word>\".  \"Undebug\" deletes all breakpoints.
+\"undebug <word>\" deletes a particular breakpoint.
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+When a breakpoint is hit, you have several simple commands
+available:
+ a - Abort debugged code out to command interpreter
+ c - Continue execution
+ d - Delete current breakpoint
+ s - Step one VM instruction (into a called routine, if necessary)
+   - (space) Step one VM instruction (over a called routine, if necesary)
+ w - Show return stack backtrace
+ . - Show operand stack
+ / - Show memory
+ : - Input a command line, which is executed after which you
+   remain in the debugger.
+ ? - Show a brief summary of available commands
+
+When in \"/\", you can use space or \"+\" to advance one cell, \"-\" to
+back up one cell, and return or \"q\" to end memory display.
+
+
+
+
+
+
+
+
+"

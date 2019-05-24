@@ -1,0 +1,126 @@
+"\\ Terminal program for driving the RS-232 port                       vandys
+only extensions also drivers definitions
+variable comport
+: com ( n -- )   1- 1 swap - $100 *   $2F0 +   comport ! ;
+: defport ( off -- )   create ,   does>   @ comport @ + ;
+$B defport LINE   $8 defport LOWBAUD   $9 defport HIBAUD
+$D defport STAT   $8 defport DATA   $2 defport IER
+: baud! ( baud -- )   LINE inb swap   $80 LINE outb
+   16 * 1843200 swap /   dup LOWBAUD outb   8 rshift HIBAUD outb
+   LINE outb ;
+: cominit ( baud -- )   baud!   3 LINE outb   $C1 IER outb ;
+: comput? ( -- <bool> )   STAT inb $20 and 0<> ;
+: comput ( c -- )   DATA outb ;
+: comget? ( -- <bool> )   STAT inb $1 and 0<> ;
+: comget ( -- c )   DATA inb   $7F and ;
+: term ( -- )   begin   comget? if   comget emit   then
+      key? comput? and if   key dup 26 ( ^Z ) = if   drop exit   then
+         comput   then   again ;
+
+
+
+
+
+
+
+\\ Support for running a CLI on a COM port--buffering of typing       vandys
+
+128 constant COMBUF
+create com_typing COMBUF allot   variable com_ntyped
+
+: com_typing_deq ( -- c )   com_typing c@ ( c )
+   com_ntyped @ 1- dup com_ntyped ! ( c u )
+   ?dup if   com_typing dup 1+ swap rot move   then ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Terminal operations implemented by emitting ANSI escape sequences  vandys
+
+\\ Note ansi_put_scr only works for system standard console geometry (80x25)
+: esc ( -- )   27 emit ;
+: ansi_put_scr ( a -- )   CONS_ROWS 0 do
+      esc [char] [ emit    i 1+ 1 u.r .\" ;1H\"
+      esc .\" [K\"   dup CONS_COLS -trailing type
+   CONS_COLS + loop   drop ;
+
+: ansi_cons_op ( ... op -- ... op F | T )
+
+   dup 3 = if   drop
+      esc .\" [m\"   esc .\" [7h\"   esc .\" [2J\"   esc .\" [H\"
+      true exit then
+   dup 4 = if   drop   swap
+      esc [char] [ emit   1+ 1 u.r   [char] ; emit
+      1+ 1 u.r [char] H emit   true exit then
+   dup 5 = if   drop   esc .\" [K\"   true exit then
+   dup 6 = if   drop   esc [char] [ emit
+      if   [char] 1 emit   then   [char] m emit   true exit then
+   dup 8 = if   drop   ansi_put_scr   true exit then
+   false ;
+
+
+
+\\ 'ttyops for console operation on a COM port                        vandys
+: com_watcher ( -- )   begin   begin pause comget? until   comget
+      com_ntyped @ dup COMBUF = if   2drop   else   ( c u )
+         com_typing + c!   com_ntyped inc   then
+   again ;
+: com_cons_op ( op -- ... )   pause   dup 2 = if   drop
+      com_ntyped @ if   com_typing_deq true   else   false   then
+      exit then
+   dup 1 = if   drop   begin comput? 0= while pause repeat
+      DATA outb   exit then
+   ansi_cons_op if exit then
+   1 abort\" Bad com_cons_op\" ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Launch CLI on com port                                             vandys
+also os
+
+: >'ttyops ( a-user -- a-'ttyops )   [ 'ttyops up @ - ] literal   + ;
+
+\\ Initialize the desired COM port before invoking this
+: fork_com ( -- )
+   fork ?dup 0= if com_watcher then   setrun
+   fork ?dup 0= if quit then
+   ['] com_cons_op over >'ttyops !   0 over >ttchan !   setrun ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

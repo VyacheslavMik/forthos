@@ -1,0 +1,101 @@
+"\\ Object Oriented extensions                                         vandys
+\\ These are words which might very well end up in the core system's
+\\ OO classlib
+only   extensions definitions
+
+: free&off ( ptr -- )   dup @ bkfree   off ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Generate sorted version of Collection contents                     vandys
+
+\\ Note, this implementation is reentrant; the use of ordered? is safe
+\\  as it is only used during guaranteed non-preemptive code path
+: swap2 ( a -- )   dup 2@ swap   rot 2! ; scrLocal
+
+variable ordered? scrLocal
+: bubSort ( vals keys nelem -- ? )   ordered? on   1- 0 do
+      dup 2@ < if   ordered? off   2dup swap2 swap2   then
+   cell+ swap cell+ swap   loop 2drop   ordered? @ ; scrLocal
+
+Collection -> :method sorted { 'key self -- sortedList }
+   self -> size dup { size }   2 < if   self -> copy exit then
+   size cells dup bkalloc { keys }   bkalloc { vals }
+   size 0 do   i self -> @   ( val ) dup vals i cells + !
+      'key execute keys i cells + !   loop
+   keys vals size   begin   3dup bubSort until   3drop
+   List -> new { result }
+   size 0 do   vals i cells + @   result -> add   loop
+   keys bkfree   vals bkfree   result method;
+
+
+
+
+
+\\ Collection comparison                                              vandys
+
+variable eqFlag scrLocal
+: (=?) ( coll' elem -- )   eqFlag @ 0= if   2drop   exit then
+   swap -> in? 0= if   eqFlag off then ; scrLocal
+Collection -> :method = ( coll' self -- ? )
+   2dup -> size   swap -> size <> if   2drop   false exit then
+   eqFlag on   ['] (=?)   swap -> do   eqFlag @ method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Move contents around                                               vandys
+
+: (addit) ( dest elem -- )  swap -> add ; scrLocal
+Collection -> :method addAll ( dest self -- )
+   ['] (addit)   swap -> do method;
+
+Collection -> :method map { arg 'fn self -- }
+   self -> size   0 ?do   arg   i self -> @   'fn execute ( elem' )
+      i self -> !   loop method;
+
+Collection -> :method copy ( self -- self' )   dup -> class -> new
+   dup rot ( dest dest self ) -> addAll method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

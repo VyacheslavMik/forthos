@@ -1,0 +1,76 @@
+"\\ Metacompilation process for ForthOS                                vandys
+Metacompilation is the process of generating a new system image
+while running under a different system.  The image being built
+is for the \"target\"; the machine on which the compilation is run
+is the \"host\".  Metacompilation permits the target to be independent
+from the host; the target may not even be the same CPU type as
+the host.
+
+Metacompilation is achieved in three basic steps.  First, a very
+basic system image is generated.  After generation, this image is
+relocated to the appropriate address so it can run when loaded
+on the target.
+
+Second, the basic system image is loaded and run on the target.
+This image provides a basic Forth system, but without editor,
+assembler, debugger, and so forth.  Most notably, this system
+does not have a filesystem available.  A set of basic words, followed
+by the filesystem source, is loaded on top of the basic system.
+
+With the filesystem now available, the third step is to load all
+the various utilities out of the filesystem, things such as assembler,
+debugger, disassembler, editor, and other things.
+
+
+
+\\                                                                    vandys
+Once the system has been loaded up with all desired code,
+the \"unexec\" word saves the image back out to disk.  One can
+now boot back into the system in its fully loaded state.
+
+On the following screen, the actual steps needed are listed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Building system image                                              vandys
+On a system with at least the assembler loaded, execute:
+
+10000 fs.cwd!    \\ Return to root of filesystem
+fs.cd kernel     \\ Kernel source
+fs.load mksys    \\ Build basic system
+\\ Verify the stack arguments; the second is the block location.
+\\  This will generally be 1 for primary boot, or 100 for secondary.
+write_image      \\ Save image
+
+\\ (Now boot this image)
+11202 11204 thru \\ Load extra source
+11828 11837 thru \\  and load filesystem
+
+\\ Now load rest of source through filesystem
+10000 fs.cwd!    \\ Set root of filesystem
+fs.cd src        \\ Move to rest of source
+fs.load mk       \\ Load it in
+
+1 (or 100) unexec         \\ Save boot image
+
+
+
+
+
+"

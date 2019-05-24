@@ -1,0 +1,401 @@
+"\\                                                                    vandys
+\\ debug.f
+\\       Implement a simple debugger
+\\ This debugger is influenced in spirit, if not implementation details,
+\\ by Joerg Plewe's ANSI Forth debugger.  Like his, we implement the
+\\ debugger by inserting our actions into the code generation process.
+\\ However, we do this not because it's the only \"allowed\" place, but
+\\ rather because we have no centralized \"next\" (and switching to one
+\\ would cost us 2x slowdown in execution speed, I tried it).
+\\
+\\ The compiler has a call to the 'genhook vector, which is usually
+\\ a no-op.  [+debug] instead switches this to a routine which emits
+\\ an @execute via 'trap instead.  We then insert appropriate checking
+\\ in a trap handling routine, and drop into the debugger when needed.
+
+only extensions definitions
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Vector to our 'trap handler, and our 'abortTrap handler
+variable (''trap)   variable (''atrap)
+
+\\ Ranges of addresses to trap as breakpoints
+8 constant MAXBPT
+create (bpts) MAXBPT cells 2* allot
+create (nbpt) 0 ,
+
+\\ Flag to break ASAP--for \"single\" stepping
+create (stepping?) 0 ,
+
+\\ Flag that we're in debug command mode
+create (indebug?) 0 ,
+
+\\ List of words explicitly breakpointed by user
+create (ubpts) MAXBPT cells allot
+create (nubpt) 0 ,
+
+\\ Convert tick addr into address of first high-level word pointer
+: >hilev ( a -- a' ) cell+ cell+ ;
+
+
+
+
+\\                                                                    vandys
+\\ Convert addr to beginning of hilev definition
+\\ This is *very* machine specific; it looks for the signature of
+\\ the assembly code header leading into a high-level definition,
+\\ and thus must be adjusted for targets other than the x86.
+: hilev? ( a -- bool ) @ $E82E2E2E = ;
+: <hilev ( a -- a' ) begin dup hilev? not while cell- repeat >hilev ;
+
+\\ Convert index into breakpoint slot
+: >bpt ( u -- a ) cells 2* (bpts) + ;
+
+\\ Find the slot matching our address, or return false
+: (findBpt) ( a -- F | u T )
+ (nbpt) @ 0 ?do i >bpt 2@
+  >r over u>= if r> over u<= if
+   drop i true unloop exit then
+  else r> drop then
+ loop drop false ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Find the ending address of a high-level routine
+\\ Assumes there's a (;) at the end; not true for kernel words (yet?)
+: >endCode ( a -- a' ) begin dup @ ['] (;) - while cell+ repeat ;
+
+\\ Set a breakpoint
+: (setBpt) ( cfaLow cfaHigh -- )
+ swap dup (findBpt) if >bpt >r 2dup r> 2@ d= if 2drop exit then then
+ (nbpt) @ dup MAXBPT >= abort\" Too many breakpoints\"
+ >bpt 2! 1 (nbpt) +! ;
+
+\\ Clear a breakpoint
+: (clrBpt) ( cfa -- )
+ begin dup (findBpt) while
+  dup >bpt dup cell+ cell+ swap rot (nbpt) @ swap 1+ - cells 2* move
+  -1 (nbpt) +!
+ repeat drop ;
+
+\\ Convert index to user breakpoint word
+: >ubpt cells (ubpts) + ;
+
+
+
+
+
+\\                                                                    vandys
+: (clrUbpt) ( cfa -- )   (nubpt) @ 0 ?do i >ubpt @ over = if
+      drop   i >ubpt dup cell+ swap (nubpt) @ i - 1- cells move
+      -1 (nubpt) +!   unloop exit   then
+   loop drop ;
+
+: (setUbpt) ( cfa -- )   dup (clrUbpt) \\ Just in case
+   (nubpt) @ dup MAXBPT >= abort\" Too many breakpoints\"
+   >ubpt !   1 (nubpt) +! ;
+
+: (setTraps) ( ? -- )   0= if   'trap off   'abortTrap off   exit then
+   (''trap) @ 'trap !   (''atrap) @ 'abortTrap ! ;
+
+: (syncBpt) ( -- )   (nubpt) @ dup (nbpt) ! 0 ?do
+      i >ubpt @ dup i >bpt 2!   loop   (nbpt) @ (setTraps) ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Show successive memory locations, return on CR
+: (showMem) ( a -- ) begin
+ dup (prval) .\" : \" dup @ (showval) cr
+ key case
+  13 of drop exit endof         \\ Leave on CR or 'q'
+  [char] q of drop exit endof
+  [char] - of cell- endof       \\ Back up one cell on '-'
+  [char] + of cell+ endof       \\ Forward one cell on '+' or space key
+  32 of cell+ endof
+ .\" ?\" endcase
+again ;
+
+\\ Set a break across an entire function
+: (breakFn) ( cfa -- ) dup @ ['] exit = if
+  \\ Break at the calling function if we're going to execute \"exit\"
+  drop r> r> r@ swap >r swap >r
+ then <hilev dup >endCode (setBpt) ;
+
+
+
+
+
+
+
+\\ Stack backtrace, with calling frame knowledge                      vandys
+[ifndef] #locals
+8 constant #locals   variable 'end}--
+[then]
+: .frame ( frame -- 'frame ptr-rp )
+   @+ 'end}-- = ( frame extended? )
+   swap dup #locals (dumpw)   #locals cells + ( extended? frame+ )
+   @+ -rot ( 'frame extended? frame++ )
+   swap if   cell+ cell+ @+ .\"  in: \" (showval) cr   then ; scrLocal
+: xwhere ( -- )   cr   (local) @   rp@ begin ( frame ptr-rp )
+   dup rp0 @ <   while
+      2dup = if   drop .frame   else   @+ (showval) cr   then
+   repeat   2drop ; Local
+
+defer .src \\ Defined later
+: .srcs ( -- )   rp@ begin
+   dup @   dup .src   dup (prval) .\" : \" @ (prval) cr ( 'rp )
+   key dup [char] < = if   drop cell+ rp0 @ min   else
+      [char] > = if   cell- rp@ max
+      else   drop exit   then then
+again ;
+
+
+
+
+\\                                                                    vandys
+\\ Main UI of debugger mode
+defer Undebug
+: (debugger) .\" Debugger at \" r@ dup (prval) .\" : \" @ (prval) cr
+ (syncBpt)   (stepping?) off   (indebug?) on
+ begin .s cr .\" debug>\" key case
+  32 of   .\" next\" cr   r@ (breakFn)   (indebug?) off   exit endof
+  [char] a of   1 abort\" Aborted\" endof
+  [char] c of   .\" continue\" cr   (syncBpt)   (indebug?) off   exit endof
+  [char] d of   .\" delete breakpoint\" cr r@ <hilev (clrUbpt) endof
+  [char] s of   .\" step\" (stepping?) on   (indebug?) off   exit endof
+  [char] U of   .\" Undebug\" Undebug endof
+  [char] w of   .\" where:\"   ['] xwhere catch   drop endof
+  [char] . of   .\" stack contents: \" cr endof     \\ They'll see it anyway
+  [char] / of   .\" show mem:\" r@ (showMem) endof
+  [char] < of   .\" Walk return stack:\" cr   .srcs endof
+  [char] : of   .\" Command line: \" query ['] eval catch if
+   .\" (aborted)\" then cr endof
+  [char] ? of .\" Commands are: [ ] step [c]ontinue [d]elete breakpoint \" cr
+   .\" [.]s (print stack) [w]here [/] display mem [?] show this help\" cr
+   .\" [a]bort [s]tep into\" cr
+   endof
+  .\" ?\" cr
+ endcase again ;
+
+\\ Breakpoint handling                                                vandys
+
+: debug ( -- )   ' >hilev (setUbpt) (syncBpt) ;
+: undebug ( -- )   ' >hilev (clrUbpt) (syncBpt) ;
+:noname   (bpts) MAXBPT cells 2* erase
+   (ubpts) MAXBPT cells erase   'trap off   'abortTrap off
+   (nbpt) off   (nubpt) off   (stepping?) off   ; is Undebug
+
+: (findBpt?) (findBpt) dup if swap drop then ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Source code access support--data structures, init, DB store        vandys
+
+variable 'tagSrc Local   variable srcMap
+variable nMap   variable srcHigh
+
+struct src
+   intcell ca     intcell blk   intcell off   endstruct
+
+: entry! ( a-entry -- )   blk @ over src>blk !
+   >in @ swap src>off ! ; Local
+
+\\ Note: bootup init is at end of this source file (boot-srcMap)
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Source code access support--creating blk/line# database            vandys
+
+: update? ( -- ? )   here srcHigh @ > if
+      here srcHigh !   false exit then
+   srcMap @   nMap @ 0 ?do
+      here over src>ca @ = if   entry!   drop unloop   true exit   then
+   src.size + loop   drop false ; scrLocal
+
+: growMap ( -- a-entry )   nMap inc    srcMap @ ( a-map )
+   nMap @ src.size * tuck   bkrealloc   dup srcMap !
+   ( u-sz a-map' ) swap src.size - + ; scrLocal
+
+: tagSrc ( -- )   blk @ 0= if exit then   update? if exit then
+   growMap   here over src>ca !   entry! ; scrLocal
+
+: +g ( -- )   ['] tagSrc   'tagSrc ! ;
+: -g ( -- )   'tagSrc off ;
+
+
+
+
+
+
+
+
+\\ Source code access support--search DB                              vandys
+
+: (entry@) ( ca -- a-entry T | F )
+   srcMap @   nMap @ 0 ?do ( ca a-entry )
+      2dup src>ca @ = if   unloop nip true exit then
+   src.size + loop   2drop false ; scrLocal
+
+4 constant backDistance scrLocal
+: entry@ ( ca -- a-entry T | F )   backDistance 0 do
+      dup (entry@) if   unloop   nip true   exit then
+   cell- loop   drop false ; Local
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Source code access support--display support                        vandys
+
+2 constant nearLines Local
+
+: .lines ( line# buf -- )   swap dup nearLines +   swap do ( buf )
+      i 0 BLKROWS within if
+         dup i BLKCOLS * +   BLKCOLS -trailing type cr   then
+   loop drop ; Local
+
+variable pos scrLocal   variable line scrLocal   variable idx scrLocal
+: .srcLine ( line pos -- )
+   dup BLKCOLS < if 1- then   tuck pos !   line !
+   ( pos' ) begin   1- dup line @ + c@ ( pos' c )
+      bl = dup if swap 1+ swap then   over 0=   or until
+   idx !   line @ idx @ type
+   inv-on   line @ idx @ +   pos @ idx @ - type   inv-off
+   line @ pos @ +   BLKCOLS pos @ -   -trailing type   cr ; Local
+
+
+
+
+
+
+
+
+\\ Source code access support--display source                         vandys
+
+variable buf scrLocal   variable line# scrLocal   variable pos2 scrLocal
+
+:noname ( : .src ) ( ca -- )   entry@ 0= if exit then ( entry )
+   .\" Block\" dup src>blk @ .   .\" , line\" dup src>off @ BLKCOLS / . cr
+   dup src>blk @ block buf !   src>off @ dup pos2 !
+   ( pos ) BLKCOLS / dup line# !   nearLines -   buf @   .lines
+   buf @ line# @ BLKCOLS * +   pos2 @ BLKCOLS mod   .srcLine
+   line# @ 1+   buf @   .lines ; is .src
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Trap handling                                                      vandys
+
+variable 'sniffer ( word is called { ? -- ? | T } )
+: ('trap) ( -- )   r@ cell- (findBpt?)   (stepping?) @ or
+   'sniffer @execute
+   if   branch [ ' (debugger) >hilev , ] then ;
+: ('atrap) ( a -- a )   (indebug?) @ if exit then
+   .\" Abort: \" dup count type cr
+   blk @ ?dup if   .\" Block\" .   >in @ .\"  line\" dup BLKCOLS / 1+ .
+      .\"  column\" BLKCOLS mod 1+ .   cr then
+   branch [ ' (debugger) >hilev , ] ;
+
+' ('trap) >hilev (''trap) !   ' ('atrap) (''atrap) !
+
+: (trap) ( -- )   'trap @ ?dup if >r then ;
+: (genTrap) ( -- )   ['] (trap) ,   'tagSrc @execute ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Disable and enable debug code generation.  Note the words are
+\\ immediate, so it can be done at a granularity finer than a
+\\ single word definition.
+: [+debug] ['] (genTrap) 'genhook ! ; immediate
+: [-debug] 0 'genhook ! ; immediate
+
+\\ Stop at the next stoppable point; most useful for breaking in
+\\  an OO method
+: breakNext ( -- )   (stepping?) on   true (setTraps) ;
+
+\\ Hook to init src code DB; \"definitions\" clears Local names, so we put
+\\  this at the tail of the source code
+also initialize definitions
+: boot-srcMap ( ? -- u | )   if
+      srcMap off   nMap off   srcHigh off   exit then
+   20000 ;
+only
+
+
+
+
+
+
+
+"

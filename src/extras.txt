@@ -1,0 +1,351 @@
+"\\ Memory structures                                                  vandys
+only extensions definitions
+64 constant (struct_max)
+create (struct_prefix) (struct_max) allot
+create (struct_name) (struct_max) allot
+variable (struct_idx)
+: $strconv ( a1 u1 a2 -- )   2dup c!   1+ swap move ;
+: (struct_prefix!) ( a1 u1 -- )   (struct_prefix) $strconv ;
+: struct   ( -- )   (struct_idx) off   bl parse (struct_prefix!) ;
+: $strccat ( a2 u2 a1 -- )   dup c@ >r   2dup +c!   r> + 1+   swap move ;
+: (cat_name) ( c -- )   (struct_prefix) (struct_name) (struct_max) move
+   (struct_name) swap $ccat   ;
+: (build_name) ( -- )   [char] > (cat_name)
+   bl parse (struct_name) $strccat   ;
+: (struct_prolog)   (struct_name) $,n   ['] doLIST call,   0 ,   overt   ;
+: (compile_struct)   (build_name) (struct_prolog)   (struct_idx) @ ,   ;
+: (build_struct)   (compile_struct)   does>   @ +   ;
+: int8   (build_struct)   1 (struct_idx) +!   ;
+: int16   (build_struct)   2 (struct_idx) +!   ;
+: int32  (build_struct)   4 (struct_idx) +!   ;
+: intcell   (build_struct)   1 cells (struct_idx) +! ;
+: bytes ( u -- )   (build_struct)   (struct_idx) +! ;
+: endstruct   [char] . (cat_name)   s\" size\" (struct_name) $strccat
+   (struct_prolog)   (struct_idx) @ ,   does>   @ ;
+
+\\ Enumerations                                                       vandys
+\\ NOTE: uses same memory structures as a \"struct\" construct
+variable (val_set)
+: enum   (val_set) off   struct ;
+: (build_enum_name) ( -- a )   [char] _ (cat_name)
+   bl parse (struct_name) $strccat   ;
+: (compile_enum)   (build_enum_name) (struct_prolog)   (struct_idx) @ ,   ;
+: (build_enum)   (compile_enum)   does>   @ ;
+: enumval!   (struct_idx) !   (val_set) on ;
+: enumval   (build_enum)   1 (struct_idx) +! ;
+: endenum   (val_set) @ if   exit   then
+   [char] _ (cat_name)   s\" MAX\" (struct_name) $strccat
+   (struct_prolog)   (struct_idx) @ 1- ,   does>   @ ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+\\ More string functions
+: $strcpy ( dest src -- )   dup c@ 1+   swap -rot move ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--parsing                                           vandys
+only extensions also forth \\ Note: loading continues here system build
+
+\\ : my+1 { arg1 arg2 -- result }   arg1 arg2 + { sum }   sum 1+ ;
+\\ Basically, names whose scope is the def, acting as constant's for
+\\  the passed parameters.  We permit these at any point in the def.
+\\ Result part is parsed & checked
+\\ Note: the compile-time mechanism is not reentrant
+
+variable curDef
+
+: ($cstreq?) ( a1 u1 a2 u2 -- ? )   rot over - if   3drop   false exit then
+   ( a a' u ) 0 do   2dup c@ swap c@ - if   unloop 2drop   false exit then
+   1+ swap 1+ loop   2drop true ;
+
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--dictionary entries                                vandys
+
+create localNFAs   #locals cells allot
+create maxName   31 c, 31 allot   maxName 1+ 31 char * fill
+: >localNFA ( u -- nfa )   cells localNFAs + @ ;
+
+(local) up @ - constant off_(local)
+also assembler : 'local->eax ( -- )   up # eax mov   0 [eax] eax mov
+   off_(local) # eax add ; -also
+code {@
+   ebx pop   'local->eax   0 [eax] eax mov   4 [ebx] eax add
+   0 [eax] eax mov   eax push   next c;
+
+: cinc ( a -- )   dup c@   1+   swap c! ;
+
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--dictionary entries                                vandys
+
+vocabulary (localVoc)   also (localVoc) definitions
+
+:noname ( -- )   #locals 0 do   i 1+ cells maxName (constant)
+      ['] {@   last @ name>   call!
+      last @   i cells localNFAs +   !
+   maxName 1+ cinc   loop ; execute
+
+current @   -also definitions   constant localVocPtr
+
+: resetLocals ( -- )   #locals 0 do   1   #markb 1 or ( ^A nfa-count )
+      i >localNFA   c!+ c!   loop ;   resetLocals
+
+: findLocal ( a -- ca na | a F )   localVocPtr find ;
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--name handling                                     vandys
+
+variable curArg
+
+:noname ( -- )   resetLocals ; 'endDef !
+
+: nfa! ( a-str u-len nfa -- )   over #markb or   swap c!+
+   swap move ;
+: localName! ( a-str u-len -- )   curArg @ >localNFA   nfa! ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--setting value                                     vandys
+
+code {!
+   ecx pop   'local->eax   0 [eax] ebx mov
+   lods   eax ebx add   ecx 0 [ebx] mov   next c;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--setup and cleanup of local variable state         vandys
+
+code end}
+   #locals cells # ebp add
+   0 [ebp] ebx mov   4 # ebp add   'local->eax   ebx 0 [eax] mov
+   0 [ebp] esi mov   4 # ebp add   next c;
+create 'end}   ' end} ,
+
+code init{
+   'local->eax   0 [eax] ebx mov
+   #locals 2 + cells # ebp sub
+   'end} # ecx mov   ecx 0 [ebp] mov
+   ebx #locals 1+ cells [ebp] mov   ebp 0 [eax] mov
+   1 cells # esi add   next c;
+
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--cleanup w. return value checking                  vandys
+
+$8 constant TERMVAL   $88888888 constant TERMINIT
+:noname ( -- a )   c\" Bad return format\" ; execute constant \"badRet
+code end}--
+   #locals cells 8 + [ebp] ecx mov
+   esp ecx sub   ecx 2 shr   $F # ecx and
+   #locals cells 4 + [ebp] edx mov
+1 $: edx eax mov   $F # eax and   ecx eax cmp   2 $ je
+   TERMVAL # eax cmp   3 $ je   edx 4 shr   1 $ jmp
+3 $:   4 # esi sub   \"badRet push#   ' (abort) # eax mov   eax jmp
+2 $:
+   #locals cells [ebp] ebx mov   'local->eax   ebx 0 [eax] mov
+   #locals cells 16 + [ebp] esi mov
+   #locals cells 20 + # ebp add   next c;
+
+' end}--   'end}-- !
+
+
+
+
+
+
+
+
+\\ Named arguments--setup w. return value checking                    vandys
+
+code init{--
+   lods   eax edx mov
+   'local->eax   0 [eax] ebx mov
+   #locals 5 + cells # ebp sub
+   'end}-- # ecx mov   ecx 0 [ebp] mov
+   edx #locals 2 + cells [ebp] mov
+   esp #locals 3 + cells [ebp] mov
+   esi #locals 4 + cells [ebp] mov
+   ebx #locals 1+ cells [ebp] mov   ebp 0 [eax] mov   next c;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--parsing of return value format                    vandys
+
+code 2over ( d1 d2 -- d1 d2 d1 )   8 [esp] eax mov   12 [esp] ebx mov
+   ebx push   eax push   next c;
+
+variable narg   variable argEntry
+
+: #args ( -- u ? )   0 begin   bl parse dup 0= abort\" Missing }\"
+      s\" |\" 2over ($cstreq?) if   2drop false exit   then
+      s\" }\" ($cstreq?) if   true exit   then
+   1+ again ; scrLocal
+: proc\"--\" ( -- )   ['] init{--   argEntry @ !
+   TERMINIT begin   #args -rot ( done? mask #arg )
+      narg @ - $F and   swap 4 << or ( done? mask' )
+   swap until   argEntry @ cell+ ! ;
+
+
+
+
+
+
+
+
+
+
+\\ Named arguments--actual compilation words                          vandys
+
+: ({) ( -- )   bl parse dup 0= abort\" no name\" ( a-str u-len )
+   s\" --\" 2over ($cstreq?) if   2drop proc\"--\"   exit then
+   s\" }\" 2over ($cstreq?) if   2drop   exit then
+   narg inc   recurse
+   localName!   compile {!   curArg @ 1+ cells ,   curArg inc ;
+: { ( -- )   (genhook) curDef @ last @ - if
+      here argEntry !   ['] findLocal 'local? !
+      compile init{   0 ,   last @ curDef !
+      narg off   curArg off   then
+   ({) ; immediate compile-only
+
+: } ( -- )   1 abort\" Mismatched braces\" ; immediate
+
+
+
+
+
+
+
+
+
+
+
+\\ Fast reboot                                                        vandys
+
+$1000 constant NBPG scrLocal
+
+here
+code movjmp ( 'info entry src dest bytes -- )
+   ecx pop   edi pop   esi pop   edx pop   ebx pop   rep byte movs
+   $2BADB002 # eax mov   edx jmp   c; scrLocal
+here swap - aligned constant movjmpSize scrLocal
+
+: fastboot { blk -- }   ttchan @ abort\" Must run on root console\"
+
+   blk block { blk0 }
+   blk0 $20 + @ $1BADB002 - abort\" Bad magic\"
+   blk0 $20 +   4 cells + @+ { ldaddr }   @+ { ldend }   cell+ @ { entry }
+   ldend ldaddr -   NBPG roundup   NBPG / { nblk }   here { img }
+   nblk 0 do   blk i + block   here NBPG move
+      NBPG allot   loop
+   here   $1 ,   640 ,   (mem_upper) @ 1024 / , ( 'info )
+   ['] movjmp   here   movjmpSize move
+   entry   img   ldaddr   nblk NBPG *   here execute ;
+
+
+
+
+"

@@ -1,0 +1,26 @@
+"\\ Real Time Clock                                                    vandys
+\\ Requires Pentium rdtsc instruction
+only drivers definitions
+
+code rdtsc ( -- du )   $0F c, $31 c, \\ rdtsc -> eax, edx
+   eax push   edx push   next c;
+$70 constant IO_RTC
+$00 constant RTC_SEC
+$0A constant RTC_STATUSA
+   $80 constant RTCSA_TUP
+create tsc1sec 0 , 0 ,   create tsc1msec 0 ,
+
+: (rtcin) ( port -- u )   IO_RTC outb   $84 inb drop   IO_RTC 1+ inb
+   $84 inb drop ;
+: (wait_tup) ( -- )   begin   RTC_STATUSA (rtcin)   RTCSA_TUP and 0= until ;
+: (wait_sec) ( sec -- sec' )   begin   (wait_tup) RTC_SEC (rtcin)
+      2dup - if   nip exit   then   drop again ;
+: calc_tscfreq ( -- )   (wait_tup) RTC_SEC (rtcin)
+   (wait_sec)   rdtsc dnegate rot   (wait_sec) drop rdtsc d+
+   2dup tsc1sec 2!    1000 um/mod tsc1msec ! drop ;
+
+only
+
+
+
+"

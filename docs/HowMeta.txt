@@ -1,0 +1,26 @@
+"\\ Instructions on metacompiling                                      vandys
+Instructions to metacompile the system:
+
+1. fs.cd/   fs.cd kernel   fs.load mksys
+2. write_image   ( or: nip 100 swap write_image )
+3. 1 ( or 100 ) fastboot
+4. 11202 11204 thru ( loads structs/enums, needed by filesystem )
+   11828 11832 thru ( loads base filesystem functionality )
+5. 10000 fs.root!   fs.cd src   fs.load mk
+6. Optionally, set CWD for each screen,
+   Start editor to enter your name
+7. 1 ( or 100 ) unexec
+8. If you've made changes, note them:
+   fs.cd/   fs.cd docs   fs.open Changes v
+
+
+
+
+
+
+
+
+
+
+
+"

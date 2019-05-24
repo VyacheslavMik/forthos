@@ -1,0 +1,2601 @@
+"\\                                                                    vandys
+\\ Dasm386.Seq            80386/80386SX Disassembler
+
+\\ Pasm386.seq Version 1.0
+\\	Ported to ForthOS by Andy Valencia, November 2002
+\\
+\\       Updated 30 Sep 89, Gene Czarcinski
+\\               - Enhance to support 386 opcodes (for PASM386)
+\\               - restructure source to make it more readable
+\\                 and updatable.
+\\               - Add support for the 8087/80287/80387
+\\               - Add support for Extended Size Registers and operands.
+\\               - Add support for Extended Addressing Size (32 bit, etc.)
+\\                 including new base/index registers, \"scaling\", and
+\\                 32-bit displacement/addresses.
+\\               - add BEHEADing
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ ** Note:        The \"code error checking\" in this disassembler is not
+\\                complete.  That is, a correct program (no bad opcodes or
+\\                options) will be correct but incorrect opcodes, etc. may
+\\                not be interpreted correctly.  For example, currently
+\\                invalid 386 control registers are defined as correct.
+\\
+\\ ** Note:        Pasm386 does not need a 286 or 386 to load and execute.
+\\
+\\
+\\ DIS8086.SEQ   8086 Disassembler  by Charles Curley
+\\
+\\  PREFIX  \\ Conversion by  Bill Muench  9 September 88  Fixes
+\\
+\\ More 'Not Used' Trapped
+\\ XCHGA for nop  FES for 8reg INC DEC
+\\ REP REPNE  MUL/DIV  POP CS  ESC
+\\
+
+
+
+
+
+
+
+\\                                                                    vandys
+vocabulary disassembler
+only extensions also disassembler definitions
+
+decimal
+
+\\ ===========================================================================
+
+\\ Emulate F83's column counter
+create #out 0 ,
+
+: SEXT ( n -- n' | sign extend byte to word )
+ dup 128 and if [ -1 255 xor ] literal or then ;
+: WSEXT ( n -- n' | sign extend short to word )
+ dup 32768 and if [ -1 65535 xor ] literal or then ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: Space space 1 #out +! ;
+: Emit emit 1 #out +! ;
+
+: (.H2)         ( n -- )        \\ 2 hex digits
+                <# # # #>
+		dup #out +!
+                type ;
+
+: .H2           (.H2) Space ;
+
+: (.H4)         ( n -- )        \\ 4 hex digits
+                <# # # # # #>
+		dup #out +!
+                type ;
+
+: .H4           (.H4) Space ;
+
+: .H8 <# # # # # # # # # #> dup #out +! type Space ;
+
+
+
+
+
+
+\\                                                                    vandys
+: COL           ( n )
+                dup #out @ <= if #out off cr then
+                #out @ - dup spaces #out +! ;
+
+variable SYMBOLIC \\ Show registers as forth registers
+  SYMBOLIC on
+
+variable Osize          \\ Operand Size Flag
+         Osize on
+
+variable Asize          \\ Address Size Flag
+         Asize on
+
+variable CP     \\ Current Pointer to Instruction \"data\" being processed
+variable OPS    \\ operand count
+variable DISP   \\ 2nd operand ext, flag, ct
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: .NA           ( n )                   \\ unknown opcode
+                .\"   ??? \" 6 #out +! .H2 ;
+
+: .NA0          ( n - n )               \\ more of unknown opcode
+                dup .NA ;
+
+: .NA1          ( op ext )              \\ unknown \"sub\" opcode
+                swap .NA .H2 ;
+
+: .NA2          ( op1 op2 ext )         \\ unknown \"sub\" opcode
+                rot  .NA
+                swap .H2 .H2 ;
+
+: Osize@        Osize @ ;
+
+: Asize@        Asize @ ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: T@            ( a - w ) w@ ;
+
+: TC@           ( a - n ) c@ ;
+
+: NEXTB         ( - n )                 \\ get byte, bump current-pointer
+                CP @ TC@ 1 CP +! ;
+
+: NEXTW         ( - w )                 \\ get short word, bump current-pointer
+                CP @ T@  2 CP +! ;
+
+: NEXTD         ( - n )                 \\ get word, bump current-pointer
+                CP @ @  4 CP +! ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: dump|         ( a n )
+                bounds do
+                    i TC@ .H2
+                loop ;
+
+: %type         ( a n )
+                bounds do
+                     i TC@
+                     dup
+                     $7F $20
+                     over - >r - r>
+                     u< if
+                         drop [char] ~
+                     then
+                     Emit
+                loop ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: .#
+                .\"  # \" 3 #out +! ;
+
+: .,
+                .\" , \" 2 #out +! ;
+
+: ?.,           ( op - op )
+                dup $0C7 and 6
+                <> if
+                     .,
+                then ;
+
+: .FAR
+                .\" FAR \" 4 #out +! ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: nuf?LL ;
+
+: .id|          ( nf \\ no trailing space )
+                dup 1+
+                dup TC@
+                rot TC@
+                31 and 0 ?do
+                   dup 127 and
+                   Emit 128 and
+                   if
+                        [char] _ 128 or
+                   else
+                        1+ dup TC@
+                   then
+                loop
+                2drop ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: ID.L          ( a )
+                #out @ swap
+                .id|
+                #out @ - 8 +
+                dup spaces #out +! ;
+
+: self.l        ( Left Justified Self-doc! )
+                create
+                      last @ ,
+                does>
+                      @ ID.L ;
+
+: .self         ( Self-doc! )
+                create
+                      last @ ,
+                does>
+                      @ .id| ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+\\ Register Definitions
+
+.self  EAX      .self  EBX      .self  ECX      .self  EDX
+.self  ESI      .self  EDI      .self  ESP      .self  EBP
+.self  CR0      .self  CR1      .self  CR2      .self  CR3
+.self  CR4      .self  CR5      .self  CR6      .self  CR7
+.self  DR0      .self  DR1      .self  DR2      .self  DR3
+.self  DR4      .self  DR5      .self  DR6      .self  DR7
+.self  TR0      .self  TR1      .self  TR2      .self  TR3
+.self  TR4      .self  TR5      .self  TR6      .self  TR7
+
+.self ST
+.self ST(0)     .self ST(1)     .self ST(2)     .self ST(3)
+.self ST(4)     .self ST(5)     .self ST(6)     .self ST(7)
+
+.self ES        .self CS        .self SS        .self  DS
+.self FS        .self GS
+
+
+
+
+
+
+\\                                                                    vandys
+.self AL        .self AX        .self [BX+SI]   .self [EAX]
+.self CL        .self CX        .self [BX+DI]   .self [ECX]
+.self DL        .self DX        .self [BP+SI]   .self [EDX]
+.self bl        .self BX        .self [BP+DI]   .self [EBX]
+.self AH        .self SP        .self [SI]
+.self CH        .self BP        .self [DI]      .self [EBP]
+.self DH        .self SI        .self [BP]      .self [ESI]
+.self BH        .self DI        .self [BX]      .self [EDI]
+
+.self *1        .self *2        .self *4        .self *8
+.self BYTE      .self word      .self DWORD
+.self BCD       .self REAL*4    .self REAL*8    .self REAL_TEMP
+.self Integer*2 .self Integer*4 .self Integer*8
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+\\ Instruction Opcode Mnemonics
+
+self.l  FADD    self.l  FMUL    self.l  FCOM    self.l  FCOMP
+self.l  FSUB    self.l  FSUBR   self.l  FDIV    self.l  FDIVR
+self.l  FUCOM   self.l  FUCOMP  self.l  FUCOMPP
+self.l  FSUBRP  self.l  FSUBP   self.l  FDIVRP  self.l  FDIVP
+self.l  FADDP   self.l  FMULP   self.l  FCOMPP
+self.l  FCLEX   self.l  FINIT
+self.l  FENI    self.l  FDISI   self.l  FSETPM  self.l  FFREEP
+self.l  FFREE   self.l  FXCH    self.l  FST     self.l  FSTP
+self.l  FLD     self.l  FNOP    self.l  FSAVE   self.l  FSTSW
+self.l  FCHS    self.l  FABS    self.l  FTST    self.l  FXAM
+self.l  FLD1    self.l  FLDL2T  self.l  FLDL2E  self.l  FLDPI
+self.l  FLDLG2  self.l  FLDLN2  self.l  FLDZ    self.l  FRSTOR
+self.l  F2XM1   self.l  FYL2X   self.l  FPTAN   self.l  FPATAN
+self.l  FXTRACT self.l  FPREM1  self.l  FDECSTP self.l  FINCSTP
+self.l  FPREM   self.l  FYL2XP1 self.l  FSQRT   self.l  FSINCOS
+self.l  FRNDINT self.l  FSCALE  self.l  FSIN    self.l  FCOS
+self.l  FLDENV  self.l  FLDCW   self.l  FSTENV  self.l  FSTCW
+
+
+
+
+\\                                                                    vandys
+self.l CLTS
+self.l SGDT     self.l SIDT
+self.l LGDT     self.l LIDT
+self.l SMSW     self.l LMSW
+self.l SLDT     self.l STR
+self.l LLDT     self.l LTR
+self.l VERR     self.l VERW
+
+self.l LSS      self.l LFS      self.l LGS
+self.l BSF      self.l BSR
+self.l BT       self.l BTS
+self.l BTR      self.l BTC
+self.l MOVSX    self.l MOVZX
+self.l SHLD     self.l SHRD
+
+self.l INS      self.l OUTS
+self.l BOUND    self.l ARPL
+self.l LES      self.l LDS
+self.l INTO     self.l IRET
+self.l ENTER    self.l LEAVE
+
+
+
+
+\\                                                                    vandys
+self.l JA       self.l JAE      self.l JB       self.l JBE
+self.l JE       self.l JG       self.l JGE      self.l JL
+self.l JLE      self.l JNE      self.l JNO      self.l JNS
+self.l JO       self.l JPE      self.l JPO      self.l JS
+
+self.l SETA     self.l SETAE    self.l SETB     self.l SETBE
+self.l SETE     self.l SETG     self.l SETGE    self.l SETL
+self.l SETLE    self.l SETNE    self.l SETNO    self.l SETNS
+self.l SETO     self.l SETPE    self.l SETPO    self.l SETS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+self.l AAM      self.l AAD      self.l XLAT
+self.l XCHG     self.l CBW      self.l CWD
+self.l JMP      self.l CALL
+self.l WAIT  self.l PUSHF  self.l POPF  self.l SAHF
+self.l LAHF  self.l TEST
+self.l MOVS     self.l CMPS     self.l STOS     self.l LODS
+self.l SCAS
+self.l RET      self.l INT
+self.l IN       self.l OUT
+self.l LOOPE    self.l LOOP     self.l LOOPNE
+self.l JCXZ     self.l JECXZ
+self.l NOT  self.l NEG  self.l MUL  self.l IMUL
+self.l DIV  self.l IDIV self.l REP  self.l REPNE
+self.l LOCK self.l HLT  self.l CMC
+self.l CLC      self.l STC      self.l CLI      self.l STI
+self.l CLD      self.l STD
+self.l LAR      self.l LSL
+
+
+
+
+
+
+
+\\                                                                    vandys
+self.l DAA      self.l DAS      self.l AAA      self.l AAS
+self.l ADD      self.l ADC      self.l AND      self.l XOR
+self.l OR       self.l SBB      self.l SUB      self.l CMP
+self.l ROL  self.l ROR  self.l RCL  self.l RCR
+self.l SHL  self.l SHR  self.l SAR
+self.l INC      self.l DEC
+self.l LEA      self.l MOV
+
+self.l PUSH     self.l POP      self.l PUSHA    self.l POPA
+
+\\ ===========================================================================
+
+self.l NEXT   self.l 1PUSH  self.l 2PUSH
+self.l BRAN1  self.l PLOOP
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: ?DISP         ( op ext - op ext | ?mod disp )
+                dup 6 rshift ?dup
+                0= if                           ( mod=0 )
+                     dup 7 and                 ( ?R/M )
+                     6 = 2 and
+                then
+                dup 3 = if                      ( mod=3 )
+                     drop 0
+                then
+                DISP ! ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .SYMBOL       ( a | name or value )
+ dup (bestent) ?dup if
+  rot drop
+  cell+ cell+ dup c@ $1F and #out +!
+  .id ?dup if .\" +\" str dup 1+ #out +! type then
+ else
+  str dup #out +! type
+ then ;
+
+create .SIZE_tab ' BYTE , ' word , ' BYTE , ' DWORD ,
+: .SIZE         ( op )
+                1 and Osize@ 2 and or .SIZE_tab exec: ;
+
+: .memSIZE      ( op ext -- op ext )
+                dup $C0 and $C0 <> if
+                        over .SIZE Space
+                then ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .word/DWORD   ( -- )
+                Osize@ if DWORD else word then
+                Space ;
+
+create .8REG_tab ' AL , ' CL , ' DL , ' bl , ' AH , ' CH , ' DH , ' BH ,
+: .8REG         ( ext )
+                7 and .8REG_tab exec: ;
+
+create .16REG_tab ' AX , ' CX , ' DX , ' BX , ' SP , ' BP , ' SI , ' DI ,
+    ' EAX , ' ECX , ' EDX , ' EBX , ' ESP , ' EBP , ' ESI , ' EDI ,
+: .16REG        ( ext )
+                7 and Osize@ $08 and or .16REG_tab exec: ;
+
+: .R8/16        ( op ext )
+                swap 1 and if .16REG else .8REG then ;
+
+: .r/M          ( op ext - op ext )
+                2dup
+                .R8/16 ;
+
+
+
+
+
+\\                                                                    vandys
+: .REG          ( op ext - op ext )
+                2dup 3 rshift
+                .R8/16 ;
+
+create .AL/X_tab ' AL , ' AX , ' AL , ' EAX ,
+: .AL/X         ( op )
+                1 and Osize@ 2 and or .AL/X_tab exec: ;
+
+\\ ===========================================================================
+
+: 0DISP .\" 0 \" 2 #out +! ;
+
+: BDISP                                         \\ byte displacement
+                CP @ DISP @ +
+                TC@
+                1 OPS +!
+                .H2 ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: WDISP                                         \\ word displacement
+                CP @ DISP @ +
+                T@ .H4
+                2 OPS +! ;
+
+: DDISP                                         \\ word displacement
+                CP @ DISP @ + dup
+                T@
+                swap 2 +
+                T@
+                .H4 .H4
+                4 OPS +! ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create .DISP_tab ' 0DISP , ' BDISP , ' WDISP , ' .r/M ,
+: .DISP         ( op ext - op ext )
+                dup 6 rshift 3 and .DISP_tab exec: ;
+
+create .DISP32_tab ' 0DISP , ' BDISP , ' DDISP , ' .r/M ,
+: .DISP32       ( op ext - op ext )
+                6 rshift 3 and .DISP32_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: BIMM          ( byte immediate )
+                .#
+                CP @ DISP @ +
+                TC@
+                1 OPS +!
+                .H2 ;
+
+: WIMM          ( word immediate )
+                .#
+                CP @ DISP @ +
+                T@
+                Osize@ if
+                        CP @ DISP @ + 2 +
+                        T@ .H4
+                        2 OPS +!
+                then
+                .H4
+                2 OPS +! ;
+
+
+
+
+
+
+\\                                                                    vandys
+: .IMM          ( op )
+                1 and if
+                     WIMM
+                else
+                     BIMM
+                then ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+create .MREG32regs_tab ' [EAX] , ' [ECX] , ' [EDX] , ' [EBX] ,
+	' nuf?LL , ' [EBP] , ' [ESI] , ' [EDI] ,
+: .MREG32regs   ( n  -- )
+                7 and .MREG32regs_tab exec: ;
+
+create .MREG32-2_tab ' *1 , ' *2 , ' *4 , ' *8 ,
+: .MREG32-2     ( op ext | 2nd byte of extended addr - SSndxBASE )
+                NEXTB                           \\ SS-Index-Base
+                dup $C7 and 5 = if
+                     DDISP
+                else
+                     over .DISP32
+                     dup  .MREG32regs
+                then
+                dup 3 rshift 7 and .MREG32regs
+                6 rshift 3 and .MREG32-2_tab exec: ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .MREG32       ( op ext | 32 bit address )
+                dup $C7 and 5 = if             \\ mod=0 R/M=6
+                     DDISP
+                     exit
+                then
+                dup $07 and 4 = if
+                     .MREG32-2
+                     exit
+                then
+                dup .DISP32
+                dup .MREG32regs ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create .MREG_tab ' [BX+SI] , ' [BX+DI] , ' [BP+SI] , ' [BP+DI] ,
+		' [SI] , ' [DI] , ' [BP] , ' [BX] ,
+: .MREG         ( op ext - op ext | reg + disp )
+                dup $C0 and $C0 = if           \\ mod=3
+                     .r/M
+                     exit
+                then
+                Asize@ if
+                     .MREG32
+                     exit
+                then
+                dup $C7 and 6 = if             \\ mod=0 R/M=6
+                     WDISP
+                     exit
+                then
+                .DISP
+                dup 7 and                      \\ mod=1 or 2
+                .MREG_tab exec: ;
+
+
+
+
+
+
+\\                                                                    vandys
+
+create .SEG_tab ' ES , ' CS , ' SS , ' DS ,
+: .SEG          ( op )
+                3 rshift 3 and .SEG_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: P/P_1         ( op )
+                dup 1 and if POP else PUSH then ;
+
+: P/P           ( op )
+                P/P_1 .SEG ;
+create .ADJ_tab ' DAA , ' DAS , ' AAA , ' AAS ,
+: .ADJ          ( op )
+                3 rshift 3 and .ADJ_tab exec: ;
+
+: P/SEG         ( op | push  seg override )
+                dup 5 rshift 1 and if .NA else P/P then ;
+
+: P/ADJ         ( op | pop  adjust )
+                dup 5 rshift 1 and if .ADJ else P/P then ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create .ALU_tab ' ADD , ' OR , ' ADC , ' SBB , ' AND ,
+    ' SUB , ' XOR , ' CMP ,
+: .ALU          ( op )
+                3 rshift 7 and .ALU_tab exec: ;
+
+: ALU           ( op - op )
+                dup .ALU
+                dup 4 and if
+                      dup .AL/X ., .IMM
+                      exit
+                then
+                NEXTB
+                over 2 and if
+                      .REG ., .MREG
+                else
+                      .MREG ?., .REG
+                then
+                2drop ;
+
+
+
+
+
+
+\\                                                                    vandys
+
+create 00-3F_tab ' ALU , ' ALU , ' ALU , ' ALU , ' ALU , ' ALU ,
+		' P/SEG , ' P/ADJ ,
+: 00-3F         ( op - op | 00-3F )
+                dup 7 and 00-3F_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+
+create 40-5F_1_tab ' INC , ' DEC , ' PUSH , ' POP ,
+: 40-5F_1       ( op | 40-5F )
+                dup 3 rshift 3 and 40-5F_1_tab exec: ;
+
+: 40-5F         ( op | 40-5F )
+                40-5F_1 .16REG ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: PUSHi
+                PUSH
+                dup $68 = if
+                     drop WIMM
+                     exit
+                then
+                dup $6A = if
+                     drop BIMM
+                     exit
+                then
+               .NA ;
+
+: Pall          ( op )
+                1 and if POPA else PUSHA then ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: 6C-6D         ( op )
+                INS  .SIZE  ;
+
+: 6E-6F         ( op )
+                OUTS .SIZE  ;
+
+: i62           ( op )
+                drop BOUND
+                NEXTB .MREG
+                drop ;
+
+: i63           ( op )
+                drop ARPL
+                NEXTB .MREG
+                drop ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: IMUL6x        ( op )
+                IMUL
+                dup .SIZE Space
+                NEXTB .MREG drop
+                .#
+                2 and 0= if
+		     Osize@ if NEXTD .H8 else NEXTW .H4 then
+                else
+                     NEXTB .H4
+                then
+                ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create 60-6F_tab
+                      ' Pall , ' Pall ,
+                      ' i62 , ' i63 ,
+                      ' .NA , ' .NA ,
+                      ' .NA , ' .NA ,
+                      ' PUSHi , ' IMUL6x ,
+                      ' PUSHi , ' IMUL6x ,
+                      ' 6C-6D , ' 6C-6D ,
+                      ' 6E-6F , ' 6E-6F ,
+: 60-6F         ( op )
+                dup $0F and 60-6F_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create .BR|_tab ' JO , ' JNO , ' JB , ' JAE , ' JE , ' JNE , ' JBE ,
+    ' JA , ' JS , ' JNS , ' JPE , ' JPO , ' JL , ' JGE , ' JLE , ' JG ,
+: .BR|          ( op )
+                15 and .BR|_tab exec: ;
+
+: 70-7F         ( op | 70-7F branch & dest )
+                .BR|
+                NEXTB SEXT CP @ + .SYMBOL ;
+
+\\ ===========================================================================
+
+create 40-7F_tab ' 40-5F , ' 40-5F , ' 60-6F , ' 70-7F ,
+: 40-7F         ( op | 40-7F )
+                dup 4 rshift 3 and 40-7F_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: ALU#1         ( op | 80-81 )
+                NEXTB
+                dup .ALU
+                .memSIZE
+                .MREG ?.,
+                ?DISP
+                drop
+                .IMM ;
+
+: ALU#2c        ( op ext )
+                .NA1 ;
+
+: ALU#2b        ( op ext )
+                dup .ALU
+                .memSIZE
+                .MREG ?.,
+                ?DISP BIMM
+                2drop ;
+
+
+
+
+
+\\                                                                    vandys
+create ALU#2_tab ' ALU#2b , ' ALU#2c , ' ALU#2b , ' ALU#2b ,
+    ' ALU#2c , ' ALU#2b , ' ALU#2c , ' ALU#2b ,
+: ALU#2         ( op | 82-83 )
+                NEXTB dup 3 rshift 7 and ALU#2_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+
+: 84-85         ( op | r/m reg )
+                TEST
+                NEXTB
+                .MREG ?.,
+                .REG
+                2drop ;
+
+: 86-87         ( op | r/m reg )
+                XCHG
+                NEXTB
+                .MREG ?.,
+                .REG
+                2drop ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: MOVRM/REG     ( op | 88-89 )
+                MOV
+                NEXTB
+                .MREG ?.,
+                .REG
+                2drop ;
+
+: MOVD          ( op | 8A-8B )
+                MOV
+                NEXTB
+                .REG .,
+                .MREG
+                2drop ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: MOVS>M        ( op | 8C-8F )
+                NEXTB
+                over $8D = if
+                     LEA
+                     .REG .,
+                     .MREG
+                else
+                     over $8F = if
+                          dup $38 and if
+                               .NA1
+                               exit
+                          then
+                          [ ' POP >name ] literal
+                          ID.L .MREG
+                     else                       ( 8C 8E )
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+                          dup $20 and if
+                               .NA1
+                               exit
+                          then
+                          MOV swap 1 or        ( Force 16bit moves only )
+                          swap over 2 and if   ( 8E )
+                               dup .SEG .,
+                               .MREG
+                          else                  ( 8C )
+                               .MREG ?., dup
+                               .SEG
+                          then
+                     then
+                then
+                2drop ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create 8MOVS_tab ' ALU#1 , ' ALU#2 , ' 84-85 , ' 86-87 ,
+    ' MOVRM/REG , ' MOVD , ' MOVS>M , ' MOVS>M ,
+: 8MOVS         ( op | 80-8F )
+                dup 2/ 7 and 8MOVS_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+
+: INTER                                 \\ interseg jmp or call
+                .FAR
+                Asize@ if NEXTD else NEXTW then
+                NEXTW
+                .H4
+                .SYMBOL ;
+
+: CALLI         ( interseg call )
+                CALL
+                INTER ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: XCHGA         ( op | 90-97 )
+                dup $90 = if
+                     .\" nop \" 4 #out +!
+                     drop
+                else
+                     XCHG
+                     .16REG .,
+                     Osize@ if EAX else AX then
+                then ;
+
+create 98-9F_tab ' CBW , ' CWD , ' CALLI , ' WAIT ,
+    ' PUSHF , ' POPF , ' SAHF , ' LAHF ,
+: 98-9F         ( op | 98-9F )
+                7 and 98-9F_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: 90S           ( op | 90-9F )
+                dup 3 rshift 1 and if 98-9F else XCHGA then ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: A0-A3         ( op | A0-A3 )
+                MOV
+                dup 2 and if
+                     WDISP .AL/X
+                else
+                     .AL/X ., WDISP
+                then ;
+
+: A4-A5         ( op | A4-A5 )
+                MOVS    .SIZE ;
+
+: A6-A7         ( op | A6-A7 )
+                CMPS    .SIZE ;
+
+: A8-A9         ( op | A8-A9 )
+                TEST
+                dup .AL/X ., .IMM ;
+
+
+
+
+
+
+\\                                                                    vandys
+: AA-AB         ( op | AA-AB )
+                STOS    .SIZE ;
+
+: AC-AD         ( op | AC-AD )
+                LODS    .SIZE ;
+
+: AE-AF         ( op | AE-AF )
+                SCAS    .SIZE ;
+
+create A0S_tab ' A0-A3 , ' A0-A3 , ' A4-A5 , ' A6-A7 ,
+    ' A8-A9 , ' AA-AB , ' AC-AD , ' AE-AF ,
+: A0S           ( op | A0-AF )
+                dup 2/ 7 and A0S_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: MOV#          ( op | B0-BF )
+                MOV
+                dup 8 and if
+                     .16REG ., WIMM
+                else
+                     .8REG  ., BIMM
+                then ;
+
+\\ ===========================================================================
+create 80-BF_tab ' 8MOVS , ' 90S , ' A0S , ' MOV# ,
+: 80-BF         ( op | 80-BF )
+                dup 4 rshift 3 and 80-BF_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
+    ' SHL , ' SHR , ' .NA0 , ' SAR ,
+: .SHIFTS       ( ext )
+                3 rshift 7 and .SHIFTS_tab exec: ;
+
+: Shift+Immed   ( op | C0-C1 )
+                NEXTB
+                dup 3 rshift 7 and
+                6 = if                  \\ 110 is invalid
+                     .NA1
+                     exit
+                then
+                dup .SHIFTS             \\ print opcode
+                .MREG                   \\ and operand
+                2drop                   \\ opcode and extension
+                ., BIMM ;               \\ Immediate code
+
+
+
+
+
+
+
+\\                                                                    vandys
+: Enter/Leave   ( op | C8-C9 )
+                $C8 = if                \\ Enter
+                     ENTER
+                     NEXTW  Space .H4
+                     NEXTB  Space .H2
+                else                    \\ Leave
+                     leave
+                then ;
+
+: CxRET         ( op | C2-C3 CA-CB )
+                RET
+                dup 8 and if
+                     .FAR
+                then
+                1 and 0= if
+                     WDISP ( ??? ) .\" +SP\" 3 #out +!
+                then ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .L/L          ( op )
+                1 and if LDS else LES then ;
+
+: LES/LDS       ( op | C4-C5 )
+                dup .L/L
+                NEXTB
+                .REG .,
+                .MREG
+                2drop ;
+
+: MOV#R/M       ( op | C6-C7 )
+                NEXTB
+                dup $38 and if
+                    .NA1
+                    exit
+                then
+                MOV
+                .memSIZE
+                .MREG ?.,
+                ?DISP drop
+                .IMM ;
+
+
+
+\\                                                                    vandys
+: CC-CD         ( op | CC-CD )
+                INT
+                1 and if
+                     NEXTB
+                else
+                     3
+                then
+                .H2 ;
+
+: INTO/IRET     ( op | CE-CF )
+                1 and if IRET else INTO then ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+create C0S_tab ' Shift+Immed , ' CxRET , ' LES/LDS , ' MOV#R/M ,
+    ' Enter/Leave , ' CxRET , ' CC-CD , ' INTO/IRET ,
+: C0S           ( op | C0-CF )
+                dup 2/ $07 and C0S_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: SHIFTS        ( op | D0-D3 )          \\ 2-byte code,
+					\\ $D0-$D3 plus 2nd byte for ModnnnR/M
+                NEXTB
+                dup 3 rshift 7 and
+                6 = if                  \\ 110 is invalid
+                     .NA1
+                     exit
+                then
+                dup .SHIFTS             \\ print opcode
+                .memSIZE                \\ and operand size
+                .MREG ?.,               \\ and operand
+                drop
+                2 and if               \\ $D2 and $D3 by CL
+                     CL
+                else
+                     .# 1 .H2
+                then ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: iD4           ( op | D4 )             \\ ASCII adjust for multiply
+                AAM NEXTB
+                2drop ;
+
+: iD5           ( op | D5 )             \\ ASCII adjust for divide
+                AAD NEXTB
+                2drop ;
+
+: iD7           ( op | D7 )
+                XLAT
+                drop ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create .ST(i)_tab ' ST(0) , ' ST(1) , ' ST(2) , ' ST(3) ,
+    ' ST(4) , ' ST(5) , ' ST(6) , ' ST(7) ,
+: .ST(i)        ( ext )
+                dup 7 and .ST(i)_tab exec: ;
+
+: .ST,          ST ., Space ;
+
+create .ST_1_tab ' .ST, , ' .ST, , ' nuf?LL , ' nuf?LL ,
+    ' .ST, , ' .ST, , ' .ST, , ' .ST, ,
+: .ST_1         ( n )
+                dup 3 rshift 7 and .ST_1_tab exec: ;
+
+: Ftype_2       ( op ext )
+                dup 3 rshift 1 and if Integer*8 else BCD then ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create Ftype_tab ' REAL*4 , ' REAL*4 , ' REAL*4 , ' nuf?LL ,
+    ' Integer*4 , ' Integer*4 , ' Integer*4 , ' REAL_TEMP ,
+    ' REAL*8 , ' REAL*8 , ' REAL*8 , ' nuf?LL ,
+    ' Integer*2 , ' Integer*2 , ' Integer*2 , ' Ftype_2 ,
+: Ftype         ( op ext )
+                over $07 and 2*
+                over $20 and 0<> if 1+ then Ftype_tab exec: ;
+
+create Fmath_tab ' FADD , ' FMUL , ' FCOM , ' FCOMP ,
+    ' FSUB , ' FSUBR , ' FDIV , ' FDIVR ,
+: Fmath         ( ext )
+                dup 3 rshift 7 and Fmath_tab exec: ;
+
+: Fxx           ( op ext )
+                .\" F:\" 2 #out +!
+                2dup swap (.H2) .\" -\" 1 #out +! (.H2) .\"  \" 1 #out +! ;
+
+: F0mod11       ( ext )
+                Fmath .ST_1 .ST(i) ;
+
+
+
+
+
+\\                                                                    vandys
+create F1mod11_tab ' FCHS , ' FABS , ' Fxx , ' Fxx ,
+    ' FTST , ' FXAM , ' Fxx , ' Fxx ,
+    ' FLD1 , ' FLDL2T , ' FLDL2E , ' FLDPI ,
+    ' FLDLG2 , ' FLDLN2 , ' FLDZ , ' Fxx ,
+    ' F2XM1 , ' FYL2X , ' FPTAN , ' FPATAN ,
+    ' FXTRACT , ' FPREM1 , ' FDECSTP , ' FINCSTP ,
+    ' FPREM , ' FYL2XP1 , ' FSQRT , ' FSINCOS ,
+    ' FRNDINT , ' FSCALE , ' FSIN , ' FCOS ,
+: F1mod11       ( ext )
+                dup 3 rshift 7 and
+                dup 0 = if drop FLD  .ST(i) exit then
+                dup 1 = if drop FXCH .ST(i) exit then
+                dup 2 = if drop FNOP        exit then
+                dup 3 = if drop FSTP .ST(i) exit then
+                dup $1F and F1mod11_tab exec: ;
+
+: F2mod11       ( ext )
+                dup $E9 = if FUCOMPP exit then
+                Fxx ;
+
+
+
+
+
+\\                                                                    vandys
+create F3mod11_tab ' FENI , ' FDISI , ' FCLEX , ' FINIT , ' FSETPM ,
+: F3mod11       ( ext )
+                dup $E4 > if Fxx exit then
+                dup $07 and F3mod11_tab exec: ;
+
+: F4mod11       ( ext )
+                Fmath .ST(i) ., Space ST ;
+
+create F5mod11op_tab ' FFREE , ' FXCH , ' FST , ' FSTP , ' FUCOM , ' FUCOMP  ,
+: F5mod11op     ( n )
+                F5mod11op_tab exec: ;
+
+: F5mod11       ( ext )
+                dup 3 rshift 7 and
+                dup 5 > if
+                     drop Fxx exit
+                then
+                F5mod11op .ST(i) ;
+
+
+
+
+
+
+\\                                                                    vandys
+create F6mod11P_tab ' FADDP , ' FMULP , ' FCOMP , ' Fxx ,
+    ' FSUBP , ' FSUBRP , ' FDIVP , ' FDIVRP ,
+: F6mod11P      ( ext )
+                dup 3 rshift 7 and F6mod11P_tab exec: ;
+
+: F6mod11       ( ext )
+                dup $D9 = if FCOMPP exit then
+                F6mod11P  .ST(i) ., Space ST ;
+
+create F7mod11op_tab ' FFREEP , ' FXCH , ' FSTP , ' FSTP ,
+: F7mod11op     ( n )
+    F7mod11op_tab exec: ;
+
+: F7mod11       ( ext )
+                dup $E0 = if FSTSW AX exit then
+                dup 3 rshift 7 and
+                dup 3 > if
+                     drop Fxx exit
+                then
+                F7mod11op .ST(i) ;
+
+
+
+
+\\                                                                    vandys
+create Fmod11_tab ' F0mod11 , ' F1mod11 , ' F2mod11 , ' F3mod11 ,
+    ' F4mod11 , ' F5mod11 , ' F6mod11 , ' F7mod11 ,
+: Fmod11        ( op ext )
+                over 7 and Fmod11_tab exec: ;
+
+create Fodd_tab ' FLD , ' Fxx , ' FST , ' FSTP ,
+    ' FLDENV , ' FLDCW , ' FSTENV , ' FSTCW ,
+    ' FLD , ' Fxx , ' FST , ' FSTP ,
+    ' Fxx , ' FLD , ' Fxx , ' FSTP ,
+    ' FLD , ' Fxx , ' FST , ' FSTP ,
+    ' FRSTOR , ' Fxx , ' FSAVE , ' FSTSW ,
+    ' FLD , ' Fxx , ' FST , ' FSTP ,
+    ' FLD , ' FLD , ' FSTP , ' FSTP ,
+: Fodd          ( op ext )
+                over 1 rshift 3 and 3 lshift
+                over 3 rshift 7 and
+                or Fodd_tab exec: ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: F_387         ( op -- )               \\ Floating Point CoProcessor
+                NEXTB                   \\ a 2-byte instruction
+                dup $C0 and $C0 = if
+                     Fmod11
+                else
+                     over 1 and 0= if
+                          Fmath
+                     else
+                          Fodd
+                     then
+                     #out @ >r
+                     Ftype
+                     #out @ r> <> if
+                          2 spaces 2 #out +!
+                     then
+                     .MREG
+                then
+                2drop ;
+
+
+
+
+
+
+\\                                                                    vandys
+create D0S_tab ' SHIFTS , ' SHIFTS , ' SHIFTS , ' SHIFTS ,
+    ' iD4 , ' iD5 , ' .NA , ' iD7 ,
+    ' F_387 , ' F_387 , ' F_387 , ' F_387 ,
+    ' F_387 , ' F_387 , ' F_387 , ' F_387 ,
+: D0S           ( op | D0-DF )
+                dup $0F and
+                D0S_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .LOOPj        Osize@ if JECXZ else JCXZ then ;
+
+create .loop_tab ' LOOPNE , ' LOOPE , ' LOOP , ' .LOOPj ,
+: .loop         ( op )
+                3 and .loop_tab exec: ;
+
+: LOOPS         ( op | E0-E3 )
+                .loop NEXTB
+                SEXT CP @ + .SYMBOL ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: IO#           ( op | E4-E7 )          \\ IN/OUT with immediate port number
+                dup 2 and if
+                     OUT BIMM .AL/X
+                     exit
+                then
+                IN .AL/X ., BIMM ;
+
+: IOX           ( op | EC-EF )          \\ IN/OUT with port in DX
+                dup 2 and if
+                     OUT DX ., .AL/X
+                     exit
+                then
+                IN .AL/X ., DX ;
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create .CALL_tab ' CALL , ' JMP , ' JMP , ' JMP ,
+: .CALL         ( op )
+                3 and .CALL_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: CALLS         ( op | E8-EB )
+                dup .CALL dup
+                2 and if
+                    dup 1 and if
+                        NEXTB SEXT CP @ + .SYMBOL
+                    else
+                        INTER
+                    then
+                else
+		    Osize@ if NEXTD else NEXTW WSEXT then
+                    CP @ + .SYMBOL
+                                ( make smart about DEBUG's tricks and E0 )
+                    dup $0E9 = CP @ c@
+                    $0E0 = and if
+                         1 CP +!
+                    then
+                then
+                drop ;
+
+
+
+
+
+
+\\                                                                    vandys
+
+create E0S_tab ' LOOPS , ' IO# , ' CALLS , ' IOX ,
+: E0S           ( op | E0-EF )
+                dup 2 rshift 3 and E0S_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: F6-F7test     ( op ext | F6-F7 )
+                TEST
+                .memSIZE
+                .MREG ?.,
+                ?DISP
+                .IMM
+                drop ;
+
+
+create .MUL/DIV_tab ' MUL , ' IMUL , ' DIV , ' IDIV ,
+: .MUL/DIV      ( ext )
+                3 rshift 3 and .MUL/DIV_tab exec: ;
+
+: MUL/DIV       ( op ext | F6-F7 )
+                dup .MUL/DIV
+                .memSIZE
+                .MREG
+                2drop ;
+
+
+
+
+
+
+\\                                                                    vandys
+: .not/NEG      ( ext )
+                3 rshift 1 and if NEG else NOT then ;
+
+: not/NEG       ( op ext | F6-F7 )
+                dup .not/NEG
+                .memSIZE
+                .MREG
+                2drop ;
+
+create F6-F7S_tab ' F6-F7test , ' .NA1 , ' not/NEG , ' not/NEG ,
+    ' MUL/DIV , ' MUL/DIV , ' MUL/DIV , ' MUL/DIV ,
+: F6-F7S        ( op | F6-F7 )                  \\ opcode was $F6 or $F7,
+                NEXTB                           \\ look at next byte (subcode)
+                dup 3 rshift 7 and
+                F6-F7S_tab exec: ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .FES          ( ext )
+                3 rshift 1 and if DEC else INC then ;
+
+: FES           ( op | FE )                     \\ opcode was $FE,
+						\\  look at next byte
+                NEXTB
+                dup 3 rshift
+                6 and if                       \\ only 000 and 001 are valid
+                     .NA1 exit
+                then
+                dup
+                .FES                            \\ INC/DEC op-subcode
+                .MREG                           \\ operand
+                $C0 and $C0 <> if              \\ size of operand
+                     dup Space .SIZE
+                then
+                drop ;                          \\ done
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .FF_CALL/JMP  ( ext )
+                2/ 1 and if CALL else JMP then ;
+
+: FF_CALL/JMP   ( op ext | FF )
+                dup 3 rshift dup .FF_CALL/JMP
+                1 and if
+                     .FAR
+                then
+                .MREG 2drop ;
+
+: FF_PUSH       ( op ext | FF )
+                dup 4 and if
+                     PUSH .MREG 2drop exit
+                then
+                .NA1 ;
+
+: .FF_INC       ( op ext )
+                3 rshift 1 and if DEC else INC then ;
+
+
+
+
+
+
+\\                                                                    vandys
+: FF_INC        ( op ext | FF )
+                dup .FF_INC                     \\ INC or DEC
+                .MREG                           \\ operand
+                $C0 and $C0 <> if              \\ size of operand
+                     dup Space .SIZE
+                then
+                drop ;                          \\ trash opcode and done
+
+create FFS_tab ' FF_INC , ' FF_CALL/JMP , ' FF_CALL/JMP , ' FF_PUSH ,
+: FFS           ( op | FF )                     \\ opcode was $FF,
+						\\  look at next byte
+                NEXTB dup 4 rshift 3 and FFS_tab exec: ;
+
+: .NAF1         ( a - a )
+		dup .SYMBOL ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create F0S_tab ' LOCK , ' .NAF1 , ' REPNE , ' REP ,
+    ' HLT , ' CMC , ' F6-F7S , ' F6-F7S ,
+    ' CLC , ' STC , ' CLI , ' STI ,
+    ' CLD , ' STD , ' FES , ' FFS ,
+: F0S           ( op | F0-FF )
+                dup 15 and
+                dup 7 and
+                6 < if
+                   nip
+                then F0S_tab exec: ;
+
+\\ ===========================================================================
+
+create C0-FF_tab ' C0S , ' D0S , ' E0S , ' F0S ,
+: C0-FF         ( op | C0-FF )
+                dup 4 rshift 3 and C0-FF_tab exec: ;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: x06           ( op1 op2 | 06 )
+                CLTS 2drop ;
+
+: x02_1         1 and if LSL else LAR then ;
+
+: x02           ( op1 op2 | 0f02-0f03 )
+                x02_1 drop
+                1 NEXTB
+                dup 3 rshift .16REG .,
+                .MREG 2drop ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create x01_1_tab ' SGDT , ' SIDT , ' LGDT , ' LIDT ,
+    ' SMSW , ' SMSW , ' LMSW , ' LMSW  ,
+: x01_1         x01_1_tab exec: ;
+
+: x01           ( op1 op2 | 0f01 )
+                NEXTB
+                dup 3 rshift 7 and
+                dup 5 = if
+                        drop .NA2 exit
+                then
+                dup 7 = if
+                        drop .NA2 exit
+                then
+                x01_1
+                >r 2drop r>
+                .MREG drop ;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create x00_1_tab ' SLDT , ' str , ' LLDT , ' LTR ,
+    ' VERR , ' VERW , ' VERR , ' VERW  ,
+: x00_1         x00_1_tab exec: ;
+
+: x00           ( op1 op2 | 0f00 )
+                NEXTB
+                dup 3 rshift 7 and
+                dup 6 >= if
+                        drop .NA2 exit
+                then
+                x00_1
+                >r 2drop r>
+                .MREG drop ;
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create x00S_tab ' x00 , ' x01 , ' x02 , ' x02 ,
+    ' .NA1 , ' .NA1 , ' x06 , ' .NA1 ,
+    ' .NA1 , ' .NA1 , ' .NA1 , ' .NA1 ,
+    ' .NA1 , ' .NA1 , ' .NA1 , ' .NA1 ,
+: x00S          ( op1 op2 -- )
+                dup $0F and x00S_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+create .Exx_tab ' EAX , ' ECX , ' EDX , ' EBX , ' ESP , ' EBP , ' ESI , ' EDI ,
+: .Exx  7 and .Exx_tab exec: ;
+create .CRx_tab ' CR0 , ' CR1 , ' CR2 , ' CR3 , ' CR4 , ' CR5 , ' CR6 , ' CR7 ,
+: .CRx  7 and .CRx_tab exec: ;
+create .DRx_tab ' DR0 , ' DR1 , ' DR2 , ' DR3 , ' DR4 , ' DR5 , ' DR6 , ' DR7 ,
+: .DRx  7 and .DRx_tab exec: ;
+create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
+: .TRx  7 and .TRx_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: x20           ( op1 op2 | 0f20 )      \\ e.g., MOV EAX, CR0
+                MOV NEXTB
+                dup $C0 and $C0 <> if
+                        .NA2 exit
+                then
+                dup
+                .Exx
+                .,
+                3 rshift .CRx
+                2drop ;
+
+: x21           ( op1 op2 | 0f21 )      \\ e.g., MOV EAX, DR0
+                MOV NEXTB
+                dup $C0 and $C0 <> if
+                        .NA2 exit
+                then
+                dup
+                .Exx
+                .,
+                3 rshift .DRx
+                2drop ;
+
+
+
+\\                                                                    vandys
+: x22           ( op1 op2 | 0f22 )      \\ e.g., MOV CR0, EAX
+                MOV NEXTB
+                dup $C0 and $C0 <> if
+                        .NA2 exit
+                then
+                dup
+                3 rshift .CRx
+                .,
+                .Exx
+                2drop ;
+
+: x23           ( op1 op2 | 0f23 )      \\ e.g., MOV DR0, EAX
+                MOV NEXTB
+                dup $C0 and $C0 <> if
+                        .NA2 exit
+                then
+                dup
+                3 rshift .DRx
+                .,
+                .Exx
+                2drop ;
+
+
+
+\\                                                                    vandys
+: x24           ( op1 op2 | 0f24 )      \\ e.g., MOV EAX, TR6
+                MOV NEXTB
+                dup $C0 and $C0 <> if
+                        .NA2 exit
+                then
+                dup
+                .Exx
+                .,
+                3 rshift .TRx
+                2drop ;
+
+: x26           ( op1 op2 | 0f26 )      \\ e.g., MOV TR6, EAX
+                MOV NEXTB
+                dup $C0 and $C0 <> if
+                        .NA2 exit
+                then
+                dup
+                3 rshift .TRx
+                .,
+                .Exx
+                2drop ;
+
+
+
+\\                                                                    vandys
+create x20S_tab ' x20 , ' x21 , ' x22 , ' x23 ,
+    ' x24 , ' .NA1 , ' x26 , ' .NA1 ,
+    ' .NA1 , ' .NA1 , ' .NA1 , ' .NA1 ,
+    ' .NA1 , ' .NA1 , ' .NA1 , ' .NA1 ,
+: x20S          ( op1 op2 -- )
+                dup $0F and x20S_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+create 0F/00-3F_tab ' x00S , ' .NA1 , ' x20S , ' .NA1 ,
+: 0F/00-3F      ( op1 op2 -- )
+                dup 4 rshift 3 and 0F/00-3F_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: BTcom                         \\ common for BT, BTR, BTC, BTS
+                2drop
+                NEXTB
+                .MREG ?.,
+                3 rshift .16REG ;
+
+
+\\ ===========================================================================
+\\ ===========================================================================
+
+: x80S          ( op1 op2 -- )          \\ 2-byte displacement conditional jumps
+                .BR|  drop
+                .\" LONG  \" 5 #out +!
+		Osize@ if NEXTD else NEXTW WSEXT then
+		CP @ + .H8 ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+create .SET|_tab ' SETO , ' SETNO , ' SETB , ' SETAE ,
+    ' SETE , ' SETNE , ' SETBE , ' SETA ,
+    ' SETS , ' SETNS , ' SETPE , ' SETPO ,
+    ' SETL , ' SETGE , ' SETLE , ' SETG ,
+: .SET|         ( op )
+                15 and .SET|_tab exec: ;
+
+: x90S          ( op1 op2 -- )
+                .SET| drop
+                NEXTB .MREG
+                drop ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: xA0           PUSH FS 2drop ;
+: xA1           POP  FS 2drop ;
+: xA8           PUSH GS 2drop ;
+: xA9           POP  GS 2drop ;
+
+: xA3           ( op1 op2 )
+                BT
+                BTcom ;
+
+: xAB           ( op1 op2 )
+                BTS
+                BTcom ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: sh_dbl        ( op1 op2 -- )          \\ common
+                1                       \\ to fake out .MREG
+                NEXTB
+                .word/DWORD
+                .MREG ?.,
+                3 rshift .16REG .,
+                drop                    \\ the fake
+                1 and 0= if
+                         OPS @ CP +!  OPS off
+                         NEXTB .# .H2
+                else
+                        .\"  CL\" 3 #out +!
+                then
+                drop ;
+
+: xA4           ( op1 op2 | 0fA4-0fA5 )
+                SHLD sh_dbl ;
+
+: xAC           ( op1 op2 | 0fAC-0fAD )
+                SHRD sh_dbl ;
+
+
+
+
+\\                                                                    vandys
+: IMULaf        ( op1 op2 | 0fAF )
+                IMUL
+                .word/DWORD
+                NEXTB
+                dup 3 rshift .16REG .,
+                .MREG drop
+                2drop ;
+
+create xA0S_tab ' xA0 , ' xA1 , ' .NA1 , ' xA3 ,
+    ' xA4 , ' xA4 , ' .NA1 , ' .NA1 ,
+    ' xA8 , ' xA9 , ' .NA1 , ' xAB ,
+    ' xAC , ' xAC , ' .NA1 , ' IMULaf ,
+: xA0S          ( op1 op2 -- )
+                dup $0F and xA0S_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: Lxs           ( op1 op2 )
+                2drop
+                NEXTB
+                .REG .,
+                .MREG
+                drop ;
+
+: xB2           ( op1 op2 )
+                LSS Lxs ;
+
+: xB4           ( op1 op2 )
+                LFS Lxs ;
+
+: xB5           ( op1 op2 )
+                LGS Lxs ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .BSx          1 and exec: if BSR else BSF then ;
+
+: BSx           ( op1 op2 -- )
+                .BSx
+                drop NEXTB
+                dup 3 rshift .16REG .,
+                .MREG
+                drop ;
+
+: xB3           ( op1 op2 )
+                BTR
+                BTcom ;
+
+: xBB           ( op1 op2 )
+                BTC
+                BTcom ;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+create .BTi_tab ' BT , ' BTS , ' BTR , ' BTC ,
+: .BTi          ( ext -- ext )
+                dup 3 rshift 3 and .BTi_tab exec: ;
+
+: BTi           ( op1 op2 | BA )        \\ BT with immediate
+                NEXTB                   \\ need 3rd byte
+                dup $20 and 0= if      \\ oops -- bad code
+                        .NA2 exit
+                then
+                .BTi                    \\ print the opcode
+                .word/DWORD
+                .MREG drop
+                OPS @ CP +!  OPS off
+                NEXTB .# .H2
+                2drop ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: Mcom                  \\ common code for MOVSX, MOVZX
+                NEXTB
+                dup 3 rshift .16REG .,
+                .MREG drop
+                Space .SIZE
+                drop ;
+
+: Mzx           ( op1 op2 | 0fB6-0fB7 )
+                MOVZX Mcom ;
+
+: Msx           ( op1 op2 | 0fBE-0fBF )
+                MOVSX Mcom ;
+
+create xB0S_tab ' .NA1 , ' .NA1 , ' xB2 , ' xB3 ,
+    ' xB4 , ' xB5 , ' Mzx , ' Mzx ,
+    ' .NA1 , ' .NA1 , ' BTi , ' xBB ,
+    ' BSx , ' BSx , ' Msx , ' Msx ,
+: xB0S          ( op1 op2 -- )
+                dup $0F and xB0S_tab exec: ;
+
+
+
+
+
+\\                                                                    vandys
+create 0F/80-BF_tab ' x80S , ' x90S , ' xA0S , ' xB0S ,
+: 0F/80-BF      ( op1 op2 -- )
+                dup 4 rshift 3 and 0F/80-BF_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .Prefix       ( -- )
+                drop
+                25 COL .\" <prefix>\" 8 #out +! ;
+
+create .INST_1_tab ' 00-3F , ' 40-7F , ' 80-BF , ' C0-FF ,
+: .INST_1                       \\ 1-byte opcodes
+                dup 6 rshift .INST_1_tab exec: ;
+
+create .INST_2_tab ' 0F/00-3F , ' .NA1 , ' 0F/80-BF , ' .NA1 ,
+: .INST_2                       \\ 2-byte opcodes
+                dup 6 rshift .INST_2_tab exec: ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: .INST         ( op )
+                2 spaces 2 #out +!
+                NEXTB
+                255 and
+                dup case
+                        $0F of
+                                NEXTB .INST_2
+                            endof
+                        $26 of
+                                .\" ES:\" 3 #out +! .Prefix
+                            endof
+                        $2E of
+                                .\" CS:\" 3 #out +! .Prefix
+                            endof
+                        $36 of
+                                .\" SS:\" 3 #out +! .Prefix
+                            endof
+                        $3E of
+                                .\" DS:\" 3 #out +! .Prefix
+                            endof
+
+
+
+
+\\                                                                    vandys
+                        $64 of
+                                .\" FS:\" 3 #out +! .Prefix
+                            endof
+                        $65 of
+                                .\" GS:\" 3 #out +! .Prefix
+                            endof
+                        $66 of
+                                Osize off
+                                .\" Operand_Size\" 12 #out +!
+                                .Prefix
+                            endof
+                        $67 of
+                                Asize off
+                                .\" Address_Size\" 12 #out +!
+                                .Prefix
+                            endof
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+                        $F0 of
+                                .\" LOCK\" 4 #out +! .Prefix
+                            endof
+                        .INST_1
+                        Osize on
+                        Asize on
+                endcase
+                OPS @ CP +!
+                OPS off
+                DISP off ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+also forth definitions
+
+\\ Disassemble instructions .. from address
+
+: DIS           ( a -- )
+   CP !
+   base @ hex
+   0 begin   CP @           \\ save current addr for later
+      #out off
+      cr .INST       \\ process the instruction
+      37 COL .\" \\\" 1 #out +!  \\ space over on output line
+      dup .H8         \\ pr addr of instr
+      CP @ over -     \\ using saved value,
+                      \\  calc length of the
+                      \\  instruction's code
+      2dup
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+      Space dump|     \\ dump in hex
+      69 COL %type    \\ and printable ascii
+      1+ dup 20 > if
+      drop
+      key [char] q = if true else 0 false then
+         else false then
+   until base !   ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

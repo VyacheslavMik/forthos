@@ -1,0 +1,126 @@
+"\\ Dynamic hash lists--definitions and allocation                     vandys
+\\ This file has a stillborn implementation of a list of values.  Set has
+\\  replaced it, so all that remains here are generic hashing functions
+\\  used by other places which use hash-based techniques.
+only extensions definitions
+
+37 constant (#INITHASH)
+100 constant (BINLEN) Local
+
+0 [if]
+Collection -> subclass: Hash ivars:
+   intcell #hash   intcell bucks   endivars
+\\ Each slot in \"bucks\" is a \"List\" instance of values
+
+Hash -> class -> :method new ( self -- hash )   super-> new ( hash )
+   (#INITHASH)   over Hash>#hash !
+   (#INITHASH) cells bkzalloc   over Hash>bucks !   method;
+[then]
+
+
+
+
+
+
+
+\\ Dynamic hash lists--hashing                                        vandys
+
+: (>hash) ( ptr -- u )   5 rshift   dup 16 rshift xor ;
+0 [if]
+: (>bin) { idx self -- idx' }
+   idx (>hash)   self Hash>#hash @ mod ; Local
+[then]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Dynamic hash lists--growth of bucket size                          vandys
+
+: prime? ( u -- bool )   dup 2/ 1+   3 do   dup i mod 0= if
+      unloop drop false exit   then
+   2 +loop   drop true ; scrLocal
+
+: (>newhash) ( u -- u' )   2* 1+ begin   dup prime? not   while
+   2 +   repeat ;
+0 [if]
+: (put) ( hash val -- )   swap -> ! ; scrLocal
+
+Hash -> :method grow { self -- }
+   self Hash>#hash @   self Hash>bucks @ { old# oldbucks }
+   old# (>newhash) { new# }   new# cells bkzalloc { newbucks }
+   new# self Hash>#hash !   newbucks self Hash>bucks !
+   oldbucks   old# 0 do   @+ ?dup if ( 'buck+ buck )
+      self   ['] (put)   rot -> do   then   loop drop
+   oldbucks bkfree   method;
+[then]
+
+
+
+
+
+
+\\ Dynamic hash lists--insertion                                      vandys
+0 [if]
+Hash -> :method add { val self -- }
+   val self (>bin) cells   self Hash>bucks @ + { 'bin }
+   'bin @ ?dup 0= if
+      List -> new   dup 'bin !   val swap -> add   exit then
+   { bin } val bin -> in? if   exit   then
+   bin -> size (BINLEN) >= if   self -> grow   then   method;
+[then]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Dynamic hash lists--testing & display                              vandys
+0 [if]
+Hash -> :method in? { key self -- T | F }   key self (>bin) ( buckidx )
+   cells   self Hash>bucks @ + @   dup 0= if exit then
+   { buck }   key buck -> in?   method;
+
+Hash -> :method . { self -- }   .\" Hash {\"
+   self Hash>bucks @   self Hash>#hash @ 0 do
+      @+ ?dup if   ( 'buck+ buck ) -> .   then
+   loop   drop   .\" }\" method;
+[then]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

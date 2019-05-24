@@ -1,0 +1,1451 @@
+"\\ Layer 3 and 4                                                      shacham
+\\ ARP, IP, ICMP, UDP, TCP, telnetd
+only
+net definitions   \\ include in net vocaculary
+extensions also os also drivers also net definitions
+
+4 constant #IP   32 constant #ARPS
+1 constant IPICMP   6 constant IPTCP   17 constant IPUDP
+
+struct stats   intcell rcv   intcell ok   intcell bad   intcell xmt   endstruct
+struct iphost   int32 addr   int32 gw   int32 mask   int32 bcst   endstruct
+
+\\ create iphst $C0A80020 ,  $C0A80001 , $FFFFFF00 , 0 ,  \\ inside NAT
+create iphst $40A11614 ,  $40A11611 , $FFFFFFF8 , 0 ,  \\ outside - s20
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+\\ ARP
+20 constant ARPTIME   \\ 20 min
+ 5 constant ARPRETRY  \\ 5 min
+
+struct arpentry   #MAC bytes ha   #IP bytes pa   int16 filler   intcell timer
+endstruct
+struct arp   int16 hrd   int16 pro   int8 hln   int8 pln   int16 op
+  #MAC bytes sha   #IP bytes spa   #MAC bytes tha   #IP bytes tpa   endstruct
+
+create arpst   stats.size allot
+create arptab   arpentry.size #ARPS * allot
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: arpget ( -- m )  ether.size arp.size + m_get ;
+
+: arpbuild ( tha m -- a )
+   tuck macaddr ENARP rot m_data enhdr  \\ Ethernet header
+   m_data ether.size + >r               \\ Ethernet load (arp packet)
+   1 r@ arp>hrd htons!   ENIP r@ arp>pro htons! \\ build generic arp packet
+   #MAC r@ arp>hln c!   #IP r@ arp>pln c!
+   macaddr r@ arp>sha #MAC cmove
+   iphst iphost>addr @ htonl r@ arp>spa !   r> ;
+
+: arptab$ ( -- a )  arptab arpentry.size #ARPS * + ;
+
+: arpha ( pa -- false | arpentry )  arptab$ arptab do
+     dup i arpentry>pa @ = if   drop i   unloop exit   then
+   arpentry.size +loop   drop false ;
+
+: arpupdt ( pa ha -- )  swap arpha ?dup 0= if   drop   else
+   tuck arpentry>ha #MAC cmove   ARPTIME swap arpentry>timer !   then ;
+
+: >arptab ( pa ha -- )  arptab$ arptab do
+     i arpentry>pa @ 0= if   i arpentry>ha #MAC cmove   i arpentry>pa !
+     ARPTIME i arpentry>timer !   unloop exit   then
+   arpentry.size +loop   .\" arp table is full\" ;
+
+\\ Layer 3 and 4                                                      shacham
+: arpreq ( pa ha -- )   arpget tuck   arpbuild   1 over arp>op htons!
+   rot htonl swap arp>tpa !   enoutraw   arpst stats>xmt inc ;
+: arpresp ( pa ha -- )  arpget   2dup arpbuild   rot over arp>tha #MAC cmove
+   rot htonl over arp>tpa !   2 swap arp>op htons!   enoutraw
+   arpst stats>xmt inc ;
+: (arpbad) ( m arp -- )   drop m_freem   arpst stats>bad inc ;
+:noname ( m -- )  arpst stats>rcv inc   dup m_data
+   dup arp>hrd @ ntohs 1 <> if   (arpbad) exit   then     \\ verify Ethernet hw
+   dup arp>pro @ ntohs ENIP <> if   (arpbad) exit   then  \\ and IP with
+   dup arp>hln c@ #MAC <> if   (arpbad) exit   then       \\ proper addr len
+   dup arp>pln c@ #IP <> if   (arpbad) exit   then        \\ of hrd and pro.
+   dup arp>spa @ ntoh dup arpha 0= if   drop false    \\ if spa known (in cache)
+     else   over arp>sha arpupdt true   then          \\ update hwa in cache.
+   over arp>tpa @ ntoh iphst iphost>addr @ = if   not if \\ if local, cache,
+       dup arp>spa @ ntoh over arp>sha >arptab   then \\ and reply, if asked
+     dup arp>op @ ntohs 1 = if   dup arp>spa @ ntoh over arp>sha arpresp   then
+   else   drop   then   drop m_freem                  \\ merge flag not needed
+   arpst stats>ok inc ; is arpinput
+defer in_broadcast
+:noname ( pa -- false | ha )  dup in_broadcast if   drop enbrdcst exit   then
+   dup arpha dup 0= if   swap ( keep false for ret ) enbrdcst arpreq   else
+   nip arpentry>ha   then ; is arprslv
+
+
+\\ Layer 3 and 4                                                      shacham
+create tsc1min 0 , 0 ,
+create arp1min 0 , 0 ,
+: (60sec) ( -- )  tsc1sec 2@ 60 0 do   tsc1sec 2@ d+   loop   tsc1min 2! ;
+: arptimer ( -- )  tsc1min 2@ arp1min 2@ dnegate rdtsc d+ d< if  \\ every 1 min
+    arptab$ arptab do                                 \\ scan all arp table
+      i arpentry>timer @ ?dup 0<> if                  \\ if timer is active
+        1- ?dup 0= if   i arpentry.size erase   else  \\ rm entry if timer is 0
+          dup i arpentry>timer !   ARPRETRY < if      \\ dec timer and
+            i arpentry>pa @ i arpentry>ha arpreq      \\ send arpreq before exp
+          then
+        then
+      then
+    arpentry.size +loop
+    tsc1min 2@ arp1min 2@ d+ arp1min 2!               \\ avoid timer drift
+  then ;
+
+:noname ( u -- )  tsc1msec @ um* rdtsc d+   begin   pause 2dup rdtsc d<   until
+  2drop ; is delay
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+\\ IP
+struct ip   int8 ip_vhl   int8 ip_tos  int16 ip_len   int16 ip_id
+  int16 ip_off   int8 ip_ttl   int8 ip_p  int16 ip_cksum   int32 ip_src
+  int32 ip_dst   endstruct
+variable ipid
+create ipst   stats.size allot
+
+: (bcstinit) ( -- )   iphst iphost>addr @ iphst iphost>mask @ not or
+   iphst iphost>bcst ! ;
+
+: in_cksum ( a n -- u )  dup 1 and 0= if   0   else   $FFFE and 2dup + c@   then
+   rot rot over + swap do   i w@ +   2 +loop
+   begin   dup 16 rshift dup 0<> while   swap $FFFF and +   repeat
+   drop not ( negate 1 - ) $FFFF and ;
+
+:noname ( dst -- bool )  ?dup 0= if   true exit   then
+   dup $FFFFFFFF = if   drop true exit   then
+   iphst iphost>bcst @ = if   true   else   false   then ; is in_broadcast
+
+: rtalloc ( dst -- dst' )  dup in_broadcast if   exit   then
+   iphst iphost>mask @ 2dup and iphst iphost>gw @ rot and <> if
+     drop iphst iphost>gw @   then ;
+
+
+\\ Layer 3 and 4                                                      shacham
+: (ipbad) ( m m -- )   drop m_freem   ipst stats>bad inc ;
+: (ipid) ( ip -- )  ip>ip_id ipid @ swap htons!   ipid inc ;
+: ipbuild ( m dst p -- )  rot >r r@ m_hdr>mh_len @ ip.size +
+   r@ ip.size negate m_adj   r> m_data >r   0 r@ ip>ip_cksum w!
+   $45 r@ ip>ip_vhl c!   128 r@ ip>ip_ttl c!   r@ ip>ip_len htons!
+   $10 r@ ip>ip_tos c!   $4000 r@ ip>ip_off htons! ( don't fragment )
+   r@ ip>ip_p c!   htonl r@ ip>ip_dst !
+   iphst iphost>addr @ htonl r@ ip>ip_src !
+   r@ (ipid)   r@ ip.size in_cksum r> ip>ip_cksum w! ;
+: ip_output ( m dst p -- )  >r 2dup r> ipbuild   rtalloc   enout
+   ipst stats>xmt inc ;
+defer icmpinput   defer tcp_input   defer udp_input
+:noname ( m -- )  ipst stats>rcv inc   dup dup m_data
+   dup ip>ip_vhl c@ dup $45 <> if   2drop (ipbad) exit   then
+   rot m_hdr.size + m_pkthdr>csum_flags @ $300 and dup $100 and 0<> if
+     nip $200 and $200 xor   else
+     drop $F and 2 lshift over swap in_cksum   then
+   0<> if   (ipbad) exit   then
+   ipst stats>ok inc   over ip.size m_adj   dup ip>ip_p c@
+   dup IPICMP = if   drop icmpinput   exit   then
+   dup IPTCP = if   drop tcp_input   exit   then
+   IPUDP = if   udp_input   exit   then
+   drop m_freem ; is ip_input
+
+\\ Layer 3 and 4                                                      shacham
+\\ ICMP
+struct icmp   int8 icmp_type   int8 icmp_code   int16 icmp_cksum
+  int16 icd_id   int16 icd_seq   56 bytes icmp_data   endstruct
+create icmpst   stats.size allot
+
+: icmpxmt ( m dst -- )  IPICMP ip_output   icmpst stats>xmt inc ;
+: icmpbuild ( len -- m )  ether.size ip.size + tuck + m_get tuck   swap m_adj ;
+
+: icmpreply ( dst icmp len -- )  dup icmpbuild swap  over m_data >r
+   rot over r@ swap cmove   0 r@ icmp>icmp_type c! \\ org icmp packet, type ECHO
+   0 r@ icmp>icmp_cksum w!   r@ swap in_cksum r> icmp>icmp_cksum w!
+   swap icmpxmt ;
+
+defer icmprpld
+:noname ( m ip -- )  over >r  ip>ip_src @ ntoh swap \\ ip_src is ip_dst for reply
+   dup m_hdr>mh_len @   swap m_data   tuck over
+   in_cksum 0<> if   r> m_freem drop 2drop   icmpst stats>bad inc   exit   then
+   icmpst stats>ok inc   over icmp>icmp_type c@ ?dup
+   0= if   icmprpld   r> m_freem   icmpst stats>rcv inc   exit   then \\ replied
+   8 = if   icmpreply   r> m_freem exit   then      \\ reply to echo request
+   r> m_freem drop 2drop ( unsupported, for now ) ; is icmpinput
+
+
+
+\\ Layer 3 and 4                                                      shacham
+16 constant PINGS   1023 constant PINGMAX
+struct pingcb   int32 dst   int32 count   intcell pingt   intcell a   endstruct
+struct pingt   intcell xmt_h   intcell xmt_l   intcell rcv_h   intcell rcv_l
+  intcell done   endstruct
+create pings PINGS pingcb.size * allot
+: pings$ ( -- a )   pings PINGS pingcb.size * + ;
+: pinginit ( dst n -- a | false )   pings$ pings do
+     i pingcb>dst @ 0= if   i pingcb.size erase
+     dup pingt.size * dup bkalloc  dup rot erase   i pingcb>pingt !
+     i pingcb>count !   i pingcb>dst !   i unloop exit   then
+   pingcb.size +loop   2drop false ;
+: pingdone ( pingcb -- )  dup pingcb>pingt @ bkfree   pingcb.size erase ;
+: pingi>t ( pingcb i -- pingt )  pingt.size * swap pingcb>pingt @ + ;
+: ping>cb ( dst icmp -- pingcb | false )  pings$ pings do
+   over i pingcb>dst @ = if   i $FFFF and over icmp>icd_id @ ntohs = if
+   i pingcb>count over icmp>icd_seq @ ntohs > if
+    2drop i unloop exit then then then   pingcb.size +loop   2drop false ;
+:noname ( dst icmp len -- )  drop tuck ping>cb ?dup 0= if   drop exit   then
+  swap icmp>icd_seq @ ntohs pingi>t pingt>rcv_h rdtsc rot 2! ; is icmprpld
+: pingsend ( seq pingcb -- )  icmp.size icmpbuild tuck   m_data >r
+   8 r@ icmp>icmp_type c!    \\ implied - icmp_code is 0
+   dup $FFFF and r@ icmp>icd_id htons!   rot r@ icmp>icd_seq htons!
+   r@ icmp.size in_cksum r> icmp>icmp_cksum w!   pingcb>dst @ icmpxmt ;
+
+\\ Layer 3 and 4                                                      shacham
+: ping ( dst n -- )  dup PINGMAX > if   2drop .\" too many. \" exit   then
+   pinginit ?dup 0= if   .\" too many ping sessions. \" exit   then  ( pingcb )
+   dup pingcb>count @ 0 do
+     dup rdtsc rot i pingi>t pingt>xmt_h 2!   i over pingsend
+     begin   pause
+       dup i 1+ pingi>t over 0 pingi>t do
+         i pingt>done @ 0= if
+           i pingt>rcv_h 2@ or 0<> if   cr
+             .\" seq=\" i over 0 pingi>t - pingt.size / u.
+             i pingt>xmt_h 2@ dnegate i pingt>rcv_h 2@ d+ .\"  cycles=\" u. u.
+             i pingt>xmt_h 2@ dnegate i pingt>rcv_h 2@ d+ tsc1msec @ um/mod
+             .\"  time=\" u. u. .\" /\"  tsc1msec @ u. .\"  msec\"
+             true i pingt>done !
+           then
+         then
+       pingt.size +loop
+       dup tsc1sec 2@ rot i pingi>t pingt>xmt_h 2@ dnegate rdtsc d+ d<
+     until
+   loop
+   pingdone ;
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+\\ UDP
+struct ipovly   int32 ih_next   int32 ih_prev   int8 ih_xl   int8 ih_pr
+  int16 ih_len   int32 ih_src   int32 ih_dst   endstruct
+struct udphdr   int16 uh_sport  int16 uh_dport   int16 uh_ulen   int16 uh_sum
+  endstruct
+struct udpiphdr   int32 ui_next   int32 ui_prev   int8 ui_xl   int8 ui_pr
+  int16 ui_len   int32 ui_src   int32 ui_dst
+  int16 ui_sport  int16 ui_dport   int16 ui_ulen   int16 ui_sum   endstruct
+
+create udpst   stats.size allot
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: (udpbad) ( m ip -- )  drop m_freem   udpst stats>bad inc ;
+
+:noname ( m ip -- )   udpst stats>rcv inc
+  over m_data udphdr>uh_ulen @ ntohs \\ udp len
+  over ip>ip_len w@ ntohs ip.size -  \\ ip packet len, without ip header
+  over <> if   drop (udpbad) exit   then
+  over ip>ip_dst @ ntoh in_broadcast if   then
+  >r over r> swap m_hdr.size + m_pkthdr>csum_flags @ $C00 and $C00 <> if
+    over ipovly>ih_xl @ >r           \\ keep org ip header fields
+    over >r dup   0 r@ ipovly>ih_xl c!   r> ipovly>ih_len htons!
+    over ipovly>ih_xl swap ip.size + 8 - in_cksum
+    over ipovly>ih_xl r> swap !      \\ restore ip header
+  else   drop   0   then   0<> if   (udpbad) exit   then
+  drop m_freem ( TODO deliver to user, expected to issue m_freem )
+  udpst stats>ok inc ; is udp_input
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+\\ TCP
+struct tcphdr   int16 th_sport  int16 th_dport   int32 th_seq   int32 th_ack
+  int8 th_off   int8 th_flags   int16 th_win   int16 th_sum   int16 th_urp
+  endstruct
+
+struct tcpiphdr   int32 ti_next   int32 ti_prev   int8 ti_xl   int8 ti_pr
+  int16 ti_len   int32 ti_src   int32 ti_dst
+  int16 ti_sport  int16 ti_dport   int32 ti_seq   int32 ti_ack
+  int8 ti_off   int8 ti_flags   int16 ti_win   int16 ti_sum   int16 ti_urp
+  endstruct
+
+struct sockbuf   intcell sb_cc   intcell sb_hiwat   intcell sb_lowat
+  intcell sb_buf   intcell sb_tail   intcell sb_head   intcell sb_next
+  endstruct
+
+#ENDATA tcpiphdr.size - constant #MSS
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+struct tcpcb   intcell seq_next   intcell seq_prev   int16 t_state
+  int16 tt_rxmt   int16 t_rxtshift   int16 t_rxtcur
+  intcell tt_persist   intcell tt_keep   intcell tt_idle   intcell tt_2msl
+  intcell tt_delsnd   intcell tt_delsnd0
+  intcell tt_delack   intcell tt_delack0
+  int16 t_dupacks   int16 t_maxseg   int8 t_force   int8 a0   int16 t_flags
+  intcell t_template   intcell t_inpcb
+  int32 snd_una   int32 snd_nxt   int32 snd_up   int32 snd_wl1   int32 snd_wl2
+  int32 iss   int32 snd_wnd
+  int32 rcv_wnd   int32 rcv_nxt   int32 rcv_up   int32 irs
+  int32 rcv_adv   int32 snd_max   int32 snd_cwnd  int32 snd_ssthresh
+  int16 t_idle   int16 t_rtt   int32 t_rtseg   int16 t_srtt   int16 t_rttvar
+  int16 t_rttmin   int16 snd_cnt   int32 max_sndwnd
+  int8 t_oobflags   int8 t_iobc   int16 t_softerror
+  int8 snd_scale   int8 rcv_scale   int8 request_r_scale
+  int8 requested_s_scale   int32 ts_recent   int32 ts_recent_age
+  int32 last_ack_sent
+  intcell control   intcell receive   intcell headers   intcell ipheaders
+  int16 sport   int16 dport   int32 daddr   int16 mss   int8 optln
+  int8 synoptln   sockbuf.size bytes so_snd
+  intcell snd_maxcnt   intcell snd_maxcwnd
+  endstruct
+
+
+\\ Layer 3 and 4                                                      shacham
+struct tcpstats   intcell tcps_accepts   intcell tcps_closed
+  intcell tcps_connattempts   intcell tcps_conndrops   intcell tcps_connects
+  intcell tcps_delack   intcell tcps_drops   intcell tcps_keepdrops
+  intcell tcps_keepprobe   intcell tcps_keeptimeo   intcell tcps_pawsdrop
+  intcell tcps_pcbcachemiss   intcell tcps_persisttimeo   intcell tcps_predack
+  intcell tcps_preddat   intcell tcps_rcvackbyte   intcell tcps_rcvackpack
+  intcell tcps_rcvacktoomuch   intcell tcps_rcvafterclose
+  intcell tcps_rcvbadoff   intcell tcps_rcvbadsum   intcell tcps_rcvbyte
+  intcell tcps_rcvbyteafterwin   intcell tcps_rcvdupack
+  intcell tcps_rcvdupbyte   intcell tcps_rcvduppack
+  intcell tcps_rcvoobbyte   intcell tcps_rcvoopack   intcell tcps_rcvpack
+  intcell tcps_rcvackafterwin   intcell tcps_rcvpartdupbyte
+  intcell tcps_rcvshort   intcell tcps_rcvtotal   intcell tcps_rcvwinprobe
+  intcell tcps_rcvwinupd   intcell tcps_rexmttimeo   intcell tcps_rttupdated
+  intcell tcps_segstimed   intcell tcps_sndacks   intcell tcps_sndbyte
+  intcell tcps_sndctrl   intcell tcps_sndpack   intcell tcps_sndprobe
+  intcell tcps_sndrexmitbyte   intcell tcps_sendrexmitpack
+  intcell tcps_sndtotal   intcell tcps_sndurg   intcell tcps_sndwinup
+  intcell tcps_timeoutdrop   intcell tcps_rcvseqnotnxt
+  intcell tcps_rcvwndzero   intcell tcps_connrej   intcell tcps_3dupack
+  intcell tcps_delsnd   intcell f1   intcell f2
+endstruct
+
+
+\\ Layer 3 and 4                                                      shacham
+$20 constant TH_URG   $10 constant TH_ACK   8 constant TH_PSH
+4 constant TH_RST   2 constant TH_SYN   1 constant TH_FIN
+$3F constant TH_FLAGS
+0 constant TCPS_CLOSED   1 constant TCPS_LISTEN   2 constant TCPS_SYN_SENT
+3 constant TCPS_SYN_RECEIVED   4 constant TCPS_ESTABLISHED
+5 constant TCPS_CLOSE_WAIT   6 constant TCPS_FIN_WAIT_1
+7 constant TCPS_CLOSING   8 constant TCPS_LAST_ACK   9 constant TCPS_FIN_WAIT_2
+10 constant TCPS_TIME_WAIT
+23 constant PORT_TELNET
+12 constant TELNET_OPTLEN   20 constant TELNET_SYNOPTLEN
+1 constant TCP_NODELAY
+12 constant TCP_MAXRXTSHIFT   128 constant TCPTV_REXMTMAX
+300 constant TCP_KEEPIDLE   150 constant TCP_KEEPINTVL   4 constant TCP_MAXIDLE
+1 constant API_ACCEPT   2 constant API_CLOSE   3 constant API_CLOSED
+4 constant API_ABORT
+
+create tcpstat   tcpstats.size allot
+
+3 constant #TCPRXMT   16 constant #TCPCB
+create tcpcbs   #TCPCB cells allot
+variable tcp_now
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: seq_lt ( a b -- bool )  - 0< ;
+: seq_leq ( a b -- bool )  - ?dup 0= if   true   else   0<   then ;
+: seq_gt ( a b -- bool )  - 0> ;
+: seq_geq ( a b -- bool )  - ?dup 0= if   true   else   0>   then ;
+
+: >iss ( a -- )  rdtsc 16 lshift swap 16 rshift or swap ! ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: so_cc ( so_snd -- len )  sockbuf>sb_cc @ ;
+: so_empty ( so_snd -- )  dup sockbuf>sb_buf @ tuck ( sb_buf so_snd sb_buf )
+   over sockbuf>sb_tail ! ( sb_buf so_snd )   2dup sockbuf>sb_next !
+   ( sb_buf so_snd ) sockbuf>sb_head ! ;
+: so_next ( len tcpcb -- )  tcpcb>so_snd sockbuf>sb_next +! ;
+: so_rxmt ( tcpcb -- )  tcpcb>so_snd dup sockbuf>sb_tail @  ( so_snd tail )
+   swap sockbuf>sb_next ! ;
+: so_add ( data len tcpcb -- bool )  tcpcb>so_snd >r      ( data len )
+   r@ sockbuf>sb_cc @ over + $FFFC > if   r> drop 2drop true   else
+   dup r@ sockbuf>sb_cc +!                                ( data len )
+   r@ so_cc r@ sockbuf>sb_hiwat @ > if   r@ so_cc r@ sockbuf>sb_hiwat !   then
+   tuck r@ sockbuf>sb_head @ swap cmove                   ( len )
+   r> sockbuf>sb_head +!   false   then ;
+: so_ack ( ack tcpcb -- )   dup tcpcb>so_snd so_cc 0> if
+    tuck tcpcb>snd_una @ - swap ( len tcpcb )
+    tcpcb>so_snd tuck over negate over sockbuf>sb_cc +! ( so_snd len so_snd )
+    sockbuf>sb_tail +!   dup so_cc 0= if   so_empty   else   drop   then
+   else   2drop   then ;
+: so_data ( tcpcb -- data )  tcpcb>so_snd sockbuf>sb_next @ ;
+: so_left ( tcpcb -- len )  dup tcpcb>so_snd sockbuf>sb_head @ swap so_data - ;
+: so_get ( len m d-in -- len m )  >r 2dup m_data r>  ( len m lem d-out d-in )
+    swap rot ( len m d-in d-out len ) cmove ( len m ) ;
+
+
+\\ Layer 3 and 4                                                      shacham
+: (tcpdone) ( m ip -- )  drop m_freem ;
+
+: tcpxmt ( m dst -- )  tcpstat tcpstats>tcps_sndtotal inc   IPTCP ip_output ;
+: tcpsnd ( tcpcb m -- )  dup ip.size m_adj   swap tcpcb>daddr @ tcpxmt ;
+
+: tcpbuild ( len -- m )  ether.size ip.size + + m_get dup   ether.size m_adj ;
+
+: tcpdlen ( ip tcphdr -- dlen )
+   tcphdr>th_off c@ 2 rshift swap ip>ip_len w@ ntohs ip.size - swap - ;
+
+: tcp_add_opt_noop ( opt -- opt' )  dup 1 swap c! 1+ ;
+: tcp_add_opt_mss ( tcpcb opt -- tcpcb opt' )
+   2 over c! 1+   4 over c! 1+   over tcpcb>t_maxseg w@ over htons! 2 + ;
+: tcp_add_opt_ws ( opt -- opt' )  tcp_add_opt_noop
+   3 over c! 1+  3 over c! 1+  0 over c! 1+ ;
+: tcp_add_opt_ts ( tcpcb opt -- tcpcb opt' )
+   tcp_add_opt_noop   tcp_add_opt_noop   8 over c! 1+   10 over c! 1+
+   tcp_now @ hton over ! 4 +   over tcpcb>ts_recent @ hton over ! 4 + ;
+
+: tcp_build_syn_opt ( tcpcb opt -- )  tcp_add_opt_mss   tcp_add_opt_ws
+   tcp_add_opt_ts 2drop ;
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: >sndmax ( tcpcb -- )  dup >r   tcpcb>snd_nxt @ ( nxt )
+   r@ tcpcb>snd_max @ over ( nxt max nxt )
+   seq_lt if   r> tcpcb>snd_max !   else   r> 2drop   then ;
+: >sndnxt ( len tcpcb -- )  tuck tcpcb>snd_nxt +!   >sndmax ;
+
+: tcpheader ( tcplen tcpcb m bool -- )  swap m_data >r  ( tcplen tcpcb bool )
+   if   dup tcpcb>snd_nxt @ hton r@ tcpiphdr>ti_seq !   then ( tcplen tcpcb )
+   IPTCP r@ tcpiphdr>ti_pr c!                           ( tcplen tcpcb )
+   over r@ tcpiphdr>ti_len htons!                       ( tcplen tcpcb )
+   iphst iphost>addr @ htonl r@ tcpiphdr>ti_src !       ( tcplen tcpcb )
+   dup tcpcb>daddr @ htonl r@ tcpiphdr>ti_dst !
+   dup tcpcb>sport w@ r@ tcpiphdr>ti_sport htons!
+   dup tcpcb>dport w@ r@ tcpiphdr>ti_dport htons!
+   dup tcpcb>rcv_nxt @ hton r@ tcpiphdr>ti_ack !        ( tcplen tcpcb )
+   r@ tcpiphdr>ti_flags c@ TH_ACK or r@ tcpiphdr>ti_flags c!
+   tcpcb>snd_wnd @ r@ tcpiphdr>ti_win htons!
+   ip.size + r@ swap in_cksum r> tcpiphdr>ti_sum w! ;
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcpctl ( tcpcb seq flags -- )  rot >r               ( seq  flags )
+   tcphdr.size r@ tcpcb>optln c@ + tcpbuild           ( seq flags m )
+   dup m_data                                         ( seq flags m tcpip )
+   rot over tcpiphdr>ti_flags c!                      ( seq m tcpip )
+   rot over tcpiphdr>ti_seq !                         ( m tcpip )
+   r@ tcpcb>optln c@ tcphdr.size + 2 lshift over tcpiphdr>ti_off c!
+   r@ tcpcb>optln c@ 0= if   drop   else
+     tcpiphdr.size + tcp_add_opt_ts drop   then       ( m )
+   tcphdr.size r@ tcpcb>optln c@ + over r@ swap false tcpheader ( m )
+   r> swap tcpsnd ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+defer rxmt_tstart   defer delackclr   defer delsndclr
+: tcp_send_syn_ack ( tcpcb -- )
+   dup tcpcb>synoptln c@ tcphdr.size + tcpbuild >r      ( tcpcb )
+   r@ m_data                                            ( tcpcb tcpip )
+   TH_SYN over tcpiphdr>ti_flags c!                     ( tcpcb tcpip )
+   over tcpcb>synoptln c@ tcphdr.size + 2 lshift over tcpiphdr>ti_off c!
+   over tcpcb>synoptln c@ 0= if   drop   else
+     over swap tcpiphdr.size + tcp_build_syn_opt   then ( tcpcb )
+   dup tcpcb>synoptln c@ tcphdr.size + over r@ true tcpheader
+   tcpstat tcpstats>tcps_sndctrl inc
+   1 over >sndnxt   dup rxmt_tstart
+   r> tcpsnd ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcp_send_ack ( tcpcb -- )
+   dup delackclr   dup tcpcb>snd_nxt @ hton 0 ( tcpcb seq flags ) tcpctl
+   tcpstat tcpstats>tcps_sndacks inc ;
+
+: tcp_send_fin ( tcpcb -- )
+   dup tcpcb>snd_nxt @ hton TH_FIN tcpctl
+   tcpstat tcpstats>tcps_sndctrl inc ;
+
+: tcp_send_keepalive ( tcpcb -- )
+   dup tcpcb>snd_una @ 1- hton 0 tcpctl
+   tcpstat tcpstats>tcps_keepprobe inc ;
+
+: rst>ctl ( m-in tcpip-in tcpip-out -- tcpip-in tcpip-out )
+   >r ( m-in tcpip-in )  swap m_data ( tcpip-in tcp-in )
+   2dup tcpdlen ( tcpip-in tcp-in dlen ) nip ( tcpip-in dlen )
+   over tcpiphdr>ti_seq @ + r@ tcpiphdr>ti_ack ! ( tcpip-in )
+   r> ( tcpip-in tcpip-out ) ;
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcp_send_rst ( m tcpip-in -- )
+   tcphdr.size tcpbuild >r   r@ m_data  ( m tcpip-in tcpip-out )
+   over tcpiphdr>ti_flags c@ TH_ACK and 0= if
+   dup tcpcb>snd_una @ 1- hton 0 tcpctl
+     0 over tcpiphdr>ti_seq !   rst>ctl
+     TH_RST TH_ACK + over tcpiphdr>ti_flags c! ( tcpip-in tcpip-out )
+    else   rot drop
+     TH_RST over tcpiphdr>ti_flags c!
+     over tcpiphdr>ti_ack @ over tcpiphdr>ti_seq !   then
+   tcphdr.size 2 lshift over tcpiphdr>ti_off c! ( tcpip-in tcpip-out )
+   IPTCP over tcpiphdr>ti_pr c!
+   tcphdr.size over tcpiphdr>ti_len htons!
+   iphst iphost>addr @ htonl over tcpiphdr>ti_src !
+   over tcpiphdr>ti_src @ over tcpiphdr>ti_dst !
+   over tcpiphdr>ti_sport w@ over tcpiphdr>ti_dport w!
+   over tcpiphdr>ti_dport w@ over tcpiphdr>ti_sport w!
+   $FFFF over tcpiphdr>ti_win htons!    ( tcpip-in tcpip-out )
+   dup ip.size tcphdr.size + in_cksum   ( tcpip-in tcpip-out cksum )
+    swap tcpiphdr>ti_sum w!             ( tcpip-in )
+   tcpstat tcpstats>tcps_sndctrl inc
+   tcpiphdr>ti_src @ ntohl   r@ ip.size m_adj   r> swap tcpxmt ;
+
+
+
+\\ Layer 3 and 4                                                      shacham
+defer delsndset
+: >sndcnt ( tcpcb -- )  dup tcpcb>snd_cnt inc
+   dup tcpcb>snd_maxcnt @ over tcpcb>snd_cnt w@ max swap tcpcb>snd_maxcnt ! ;
+: tcpdbuild ( dlen tcpcb -- m )  tcpcb>headers @ tuck + m_get   dup rot m_adj ;
+
+: tcp_send ( m tcpcb -- )
+   over m_hdr>mh_len @ >r                                    ( m tcpcb )
+   2dup tcpcb>ipheaders @ negate m_adj                       ( m tcpcb )
+   over m_data over tcpcb>optln c@ tcphdr.size +             ( m tcpcb hdr-len )
+     2 lshift swap tcpiphdr>ti_off c!                        ( m tcpcb )
+   dup tcpcb>optln c@ 0<> if
+     over m_data tcpiphdr.size + tcp_add_opt_ts drop   then  ( m tcpcb )
+   dup >sndcnt
+   2dup swap dup m_hdr>mh_len @ ip.size - rot rot true tcpheader
+   tcpstat tcpstats>tcps_sndpack inc
+   tuck tcpcb>daddr @ over ip.size m_adj tcpxmt   dup rxmt_tstart
+   dup delackclr   dup delsndclr   r> swap 2dup >sndnxt   so_next ;
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: keeprst ( tcpcb -- )   TCP_KEEPIDLE over tcpcb>tt_keep !
+   TCP_MAXIDLE swap tcpcb>tt_idle ! ;
+
+: sndlen ( tcpcb -- len )  dup so_left ( tcpcb len )
+   over tcpcb>t_maxseg w@ min ( tcpcb len )   swap tcpcb>rcv_wnd @ min ( len ) ;
+
+: snd1seg ( tcpcb -- len )  >r   r@ sndlen ( len )
+   dup if ( len )   dup r@ tcpdbuild ( len m )   r@ ( len m tcpcb )
+     so_data ( len m d-in )   so_get ( len m )   r> tcp_send ( len )
+   else   r> drop ( len )  then ;
+
+: snd_left ( tcpcb -- )  dup sndlen 0= if   drop exit   then
+   dup so_left ?dup 0> if                ( tcpcb len )
+     dup 0 do                            ( tcpcb len )
+       over snd1seg                      ( tcpcb len len-sent )
+     +loop   drop                        ( tcpcb )
+   then   drop ;
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcp_rxmt ( tcpcb -- )
+   dup tcpcb>t_state w@                  ( tcpcb state )
+   dup TCPS_SYN_SENT = if   2drop exit   then
+   dup TCPS_SYN_RECEIVED = if   drop
+    tcpstat tcpstats>tcps_sndrexmitbyte inc
+    tcpstat tcpstats>tcps_sendrexmitpack inc
+    tcp_send_syn_ack exit   then
+   dup TCPS_ESTABLISHED = if   drop      ( tcpcb )
+    dup tcpcb>rcv_wnd @ 0= if
+      tcpstat tcpstats>tcps_rcvwndzero inc   drop exit   then
+    dup tcpcb>so_snd so_cc ?dup 0> if    ( tcpcb cc )
+     dup 0 do                            ( tcpcb cc )
+       over snd1seg                      ( tcpcb cc len )
+       dup tcpstat tcpstats>tcps_sndrexmitbyte +!
+       tcpstat tcpstats>tcps_sendrexmitpack inc
+     +loop   drop                        ( tcpcb )
+    then   drop exit   then
+   2drop ( all other states, for now ) ;
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: mss>maxseg ( mss tcpcb -- )  tcpcb>t_maxseg tuck w@ min   swap w! ;
+
+: optlen ( opt -- opt-len)  1+ c@ ;
+: tcp_get_opt  ( tcpcb opt -- opt-len )  dup c@
+   dup 0=  if   nip nip exit   then \\ kind=0 end of option list
+   dup 1 = if   nip nip exit   then \\ kind=1 noop
+   dup 2 = if   drop dup 2 + w@ ntohs
+    rot 2dup mss>maxseg   tcpcb>mss w!   optlen exit   then
+   dup 3 = if   drop dup 2 + c@ rot tcpcb>snd_scale ! optlen exit   then
+   8 = if   dup 2 + @ ntoh rot tcpcb>ts_recent ! optlen exit   then
+   nip optlen ; \\ unknow options - ignore
+
+: tcp_opts ( tcphdr len tcpcb -- )  rot tcphdr.size + rot over + swap do
+  dup i tcp_get_opt ?dup 0= if   unloop exit   then   +loop   drop ;
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcpcbget ( -- tcpcb | false )  tcpcbs dup #TCPCB cells + swap do
+    i @ 0= if   tcpcb.size bkalloc dup i !   unloop exit   then
+   1 cells +loop   false ;
+: tcpcbfree ( tcpcb -- )  tcpcbs dup #TCPCB cells + swap do
+    dup i @ = if   dup tcpcb>so_snd sockbuf>sb_buf @ bkfree   bkfree
+      0 i !   unloop exit   then   1 cells +loop   drop ;
+
+: tcpsock>cb ( tcpiphdr -- tcpcb | false )
+   dup tcpiphdr>ti_sport w@ ntohs swap tcpiphdr>ti_src @ ntoh ( sport src )
+   tcpcbs dup #TCPCB cells + swap do ( sport src )
+    i @ 0<> if   2dup                ( sport src sport src )
+      i @ tcpcb>daddr @ = if         ( sport src sport )
+       i @ tcpcb>dport w@ = if   2drop i @   unloop exit   then
+      else   drop   then             ( sport src )
+    then   1 cells +loop   2drop false ;
+
+: tcpsock>lsn ( tcpiphdr -- tcpcb | false )
+   tcpiphdr>ti_dport w@ ntohs        ( dport )
+   tcpcbs dup #TCPCB cells + swap do
+    i @ 0<> if   i @ tcpcb>t_state @ TCPS_LISTEN = if
+      i @ tcpcb>sport w@ over = if   drop   i @   unloop exit   then
+    then   then   1 cells +loop   drop false ;
+
+
+\\ Layer 3 and 4                                                      shacham
+: rxmt_treset ( tcpcb -- )  12 over tcpcb>t_rxtcur w!
+   0 over tcpcb>tt_rxmt w!   0 swap tcpcb>t_rxtshift w! ;
+
+: tcpt_rangeset ( tcpcb -- )  dup tcpcb>t_rxtcur w@ 1 lshift
+   TCPTV_REXMTMAX min swap 2dup   tcpcb>t_rxtcur w!   tcpcb>tt_rxmt w! ;
+
+: more2ack? ( tcpcb -- bool )  dup tcpcb>snd_una @ swap tcpcb>snd_nxt @ <> ;
+
+: cur>txmt ( tcpcb -- )  dup tcpcb>t_rxtcur w@ swap tcpcb>tt_rxmt w! ;
+
+: rxmt_tset ( tcpcb -- )  dup more2ack? if   dup tcpcb>t_rxtcur w@
+   swap tcpcb>tt_rxmt w!   else   rxmt_treset   then ;
+
+:noname ( tcpcb -- )  dup more2ack? if   dup tcpcb>tt_rxmt w@ 0= if
+   dup cur>txmt   then   then   drop ; is rxmt_tstart
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: badack? ( ack tcpcb -- bool )
+   2dup tcpcb>snd_una @ = if   2drop false exit   then
+   2dup tcpcb>snd_una @ seq_gt if                      ( ack tcpcb )
+    2dup tcpcb>snd_nxt @ seq_leq if                    ( ack tcpcb )
+     tcpstat tcpstats>tcps_rcvackpack inc   0 over tcpcb>snd_cnt w!
+     2dup so_ack ( ack tcpcb )   tuck tcpcb>snd_una ! ( tcpcb )
+     rxmt_tset ( )
+     false exit   else   tcpstats>tcps_rcvacktoomuch inc
+     ( ack tcpcb ) nip tcp_send_ack   true exit   then
+   else   2drop true   then ;
+
+: badsynack? ( ack tcpcb -- bool )
+   2dup tcpcb>snd_una @ seq_lt if   2drop true exit   then
+   tcpcb>snd_nxt @ seq_gt if   true   else   false   then ;
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: rxmtinit ( tcpcb -- )  dup tcpcb>snd_una @ over tcpcb>snd_nxt !   so_rxmt ;
+: >maxcwnd ( tcpcb -- )  dup tcpcb>snd_maxcwnd @ over tcpcb>snd_cwnd @ max
+    swap tcpcb>snd_maxcwnd ! ;
+: dup>cwnd ( tcpcb -- )  dup tcpcb>t_dupacks w@ over tcpcb>snd_cwnd @ max
+    over tcpcb>snd_cwnd !   0 over tcpcb>t_dupacks w!   >maxcwnd ;
+
+: dupack? ( ip tcp tcpcb -- bool )  >r ( ip tcp )
+   dup tcphdr>th_ack @ ntoh r@ tcpcb>snd_una @ = if ( ip tcp )
+    tcpdlen 0= if ( )   ( TODO check for rcv_wnd change )
+     tcpstat tcpstats>tcps_rcvdupack inc
+     r@ more2ack? if   r@ tcpcb>t_dupacks inc
+      r@ tcpcb>t_dupacks w@ #TCPRXMT > if  r> drop false exit   then
+      r@ tcpcb>t_dupacks w@ #TCPRXMT 5 within if
+       tcpstat tcpstats>tcps_3dupack inc
+       r@ rxmtinit   0 r@ tcpcb>tt_rxmt w!
+       r> tcp_rxmt   else   r> drop   then   true exit
+     then   then   else   2drop   then   r> dup>cwnd   false ;
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: upsndwnd? ( tcphdr tcpcb -- bool )  >r
+    r@ tcpcb>snd_wl1 @ over tcphdr>th_seq @ ntoh 2dup seq_lt if
+     2drop r> 2drop true exit   then
+    = if   r@ tcpcb>snd_wl2 @ over tcphdr>th_ack @ ntoh seq_leq if
+     r> 2drop true exit   then   then   r> 2drop false ;
+
+: upsndwnd ( tcphdr tcpcb -- )  2dup upsndwnd? if   >r
+    dup tcphdr>th_win w@ ntohs r@ tcpcb>snd_wnd !
+    dup tcphdr>th_seq @ ntoh r@ tcpcb>snd_wl1 !
+    tcphdr>th_ack @ ntoh r> tcpcb>snd_wl2 !    else   2drop   then ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: badseq? ( tcphdr tcpcb -- bool )  tuck ( tcpcb tcphdr tcpcb )
+   tcpcb>rcv_nxt @ swap tcphdr>th_seq @ ntoh <> if  ( tcpcb )
+    tcp_send_ack   tcpstat tcpstats>tcps_rcvseqnotnxt inc true
+   else   drop false   then ;
+
+: (len?) ( tcphdr tcpcb len -- bool )  swap >r  ( tcphdr len )
+   swap tcphdr>th_seq @ ntoh over + tuck        ( seq+len len seq+len )
+   r@ tcpcb>rcv_nxt @ r@ tcpcb>rcv_wnd +        ( seq+len len seq+len nxt+wnd )
+   seq_gt if                                    ( seq+len len )
+     2drop r> drop   tcpstat tcpstats>tcps_rcvbyteafterwin inc   false
+   else
+    tcpstat tcpstats>tcps_rcvbyte +!   r> tcpcb>rcv_nxt !   true
+   then ;
+
+: len? ( ip tcphdr tcpcb -- bool )
+   >r tuck tcpdlen r> swap ?dup 0= if   2drop false   else   (len?)   then ;
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+defer tcp_state   defer tcp_accept   defer delackset
+:noname ( m ip -- )  tcpstat tcpstats>tcps_rcvtotal inc
+  dup ip>ip_len w@ ntohs ip.size -   \\ tcp len
+  >r over r> swap m_hdr.size + m_pkthdr>csum_flags @ $C00 and $C00 <> if
+    over ipovly>ih_xl @ >r           \\ keep org ip header fields
+    over >r dup   0 r@ ipovly>ih_xl c!   r> ipovly>ih_len htons!
+    over ipovly>ih_xl swap ip.size + 8 - in_cksum
+    over ipovly>ih_xl r> swap !      \\ restore ip header
+  else   drop   0   then
+  0<> if   drop m_freem   1 tcpstat tcpstats>tcps_rcvbadsum exit   then
+  over m_data tcphdr>th_flags c@ TH_FLAGS and TH_SYN = if   tcp_accept   else
+    tcp_state   then ; is tcp_input
+
+: tcpclrt ( tcpcb -- )   0 over tcpcb>tt_rxmt w!   0 over tcpcb>tt_persist !
+   0 over tcpcb>tt_keep !   0 over tcpcb>tt_idle !
+   0 over tcpcb>tt_2msl !   dup delackclr   delsndclr ;
+
+: >tcpidle ( tcpcb state -- )  over tcpcb>t_state w!   0 over tcpcb>daddr !
+   0 over tcpcb>dport w!   0 over tcpcb>snd_nxt !   0 over tcpcb>snd_una !
+   0 over tcpcb>snd_cwnd !   0 over tcpcb>t_dupacks w!
+   0 over tcpcb>rcv_nxt !   0 over tcpcb>rcv_wnd !   tcpclrt ;
+
+
+
+\\ Layer 3 and 4                                                      shacham
+:noname ( m ip -- )
+   dup tcpsock>cb ?dup 0= if
+     dup tcpiphdr>ti_flags c@ TH_RST and 0= if   2dup tcp_send_rst   then
+     (tcpdone) exit   then
+                                                             ( m ip tcpcb )
+   >r   r@ keeprst   r@ tcpcb>t_state w@                     ( m ip state )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_SYN_SENT = if   r> 2drop (tcpdone) exit   then
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_SYN_RECEIVED = if   drop   over m_data           ( m ip tcp )
+     dup r@ badseq? if   r> 2drop (tcpdone) exit   then
+     dup r@ upsndwnd                                         ( m ip tcp )
+     dup tcphdr>th_flags c@ TH_RST and 0<> if                ( m ip tcp )
+       r> TCPS_LISTEN >tcpidle   drop (tcpdone) exit   then
+     dup tcphdr>th_flags c@ TH_SYN and 0<> if                ( m ip tcp )
+       drop 2dup tcp_send_rst                                ( m ip )
+       r> TCPS_LISTEN >tcpidle   (tcpdone) exit   then
+     dup tcphdr>th_flags c@ TH_ACK and 0= if   r> 2drop (tcpdone) exit   then
+     dup tcphdr>th_ack @ ntoh r@ badack? if   r> 2drop       ( m ip )
+       2dup tcp_send_rst   (tcpdone) exit   then
+     r@ API_ACCEPT over tcpcb>control @ ?dup if   execute   else   2drop   then
+     TCPS_ESTABLISHED r@ tcpcb>t_state w!   tcpstat tcpstats>tcps_connects inc
+     dup tcphdr>th_win w@ ntohs r@ tcpcb>rcv_wnd !           ( m ip tcp )
+     dup tcphdr>th_off c@ 2 rshift tcphdr.size - ?dup if
+       over swap r@ tcp_opts   then                          ( m ip tcp )
+     nip dup tcphdr>th_flags c@ TH_FIN and 0<> if            ( m tcp )
+      tcphdr>th_seq @ ntoh 1+ r@ tcpcb>rcv_nxt !   m_freem   ( )
+      r@ tcp_send_ack   TCPS_CLOSE_WAIT r@ tcpcb>t_state w!  ( )
+      r> API_CLOSE over tcpcb>control @ ?dup if   execute   else   2drop   then
+     else   r> drop (tcpdone)  then                          ( )
+   exit   then
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_ESTABLISHED = if   drop   over m_data            ( m ip tcp )
+     dup r@ badseq? if   r> 2drop (tcpdone) exit   then
+     dup r@ upsndwnd                                         ( m ip tcp )
+     dup tcphdr>th_flags c@ TH_RST TH_SYN or and 0<> if      ( m ip tcp )
+       r@ TCPS_CLOSED >tcpidle                               ( m ip tcp )
+       r> API_ABORT over tcpcb>control @ ?dup if   execute   else   2drop   then
+       drop (tcpdone) exit   then
+     dup tcphdr>th_flags c@ TH_ACK and 0= if   r> 2drop (tcpdone) exit   then
+     2dup r@ dupack? if   r> 2drop (tcpdone) exit   then
+     dup tcphdr>th_ack @ ntoh r@ badack? if   r> 2drop (tcpdone) exit   then
+     dup tcphdr>th_win w@ ntohs r@ tcpcb>rcv_wnd !           ( m ip tcp )
+     dup tcphdr>th_off c@ 2 rshift tcphdr.size - ?dup if
+       over swap r@ tcp_opts   then                          ( m ip tcp )
+     tuck r@ ( m tcp ip tcp tcpcb ) len? if                  ( m tcp )
+       r@ delackset   2dup tcphdr>th_off c@ 2 rshift m_adj over ( m tcp m )
+       r@ dup tcpcb>receive @ ?dup if   execute   else   2drop   then   then
+     dup tcphdr>th_flags c@ TH_FIN and 0<> if                ( m tcp )
+      tcphdr>th_seq @ ntoh 1+ r@ tcpcb>rcv_nxt !   m_freem   ( )
+      r@ tcp_send_ack   TCPS_CLOSE_WAIT r@ tcpcb>t_state w!  ( )
+      r> API_CLOSE over tcpcb>control @ ?dup if   execute   else   2drop   then
+     else   r> drop (tcpdone)  then                          ( )
+   exit   then
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_CLOSE_WAIT = if   r> 2drop (tcpdone) exit   then
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_FIN_WAIT_1 = if   r> 2drop (tcpdone) exit   then
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_CLOSING = if   r> 2drop (tcpdone) exit   then
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_LAST_ACK = if   drop   over m_data               ( m ip tcp )
+     dup r@ badseq? if   r> 2drop (tcpdone) exit   then
+     dup r@ upsndwnd                                         ( m ip tcp )
+     dup tcphdr>th_flags c@ TH_RST TH_SYN or and 0<> if      ( m ip tcp )
+       r@ TCPS_CLOSED >tcpidle                               ( m ip tcp )
+       r> API_ABORT over tcpcb>control @ ?dup if   execute   else   2drop   then
+       drop (tcpdone) exit   then
+     dup tcphdr>th_flags c@ TH_ACK and 0= if   r> 2drop (tcpdone) exit   then
+     r@ TCPS_CLOSED >tcpidle                                 ( m ip tcp )
+     r> API_CLOSED over tcpcb>control @ ?dup if   execute   else   2drop   then
+     drop (tcpdone)   tcpstat tcpstats>tcps_closed inc
+   exit   then
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+   dup TCPS_FIN_WAIT_2 = if   r> 2drop (tcpdone) exit   then
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+   TCPS_TIME_WAIT = if   r> 2drop (tcpdone) exit   then
+
+   r> drop (tcpdone) ( unknown states should never happen ) ; is tcp_state
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+create ip_ok $C0A80000 ,  0 , $FFFFFF00 , 0 ,
+             $40A11610 ,  0 , $FFFFFFF8 , 0 ,
+             $AB404E00 ,  0 , $FFFFFF00 , 0 , \\ Hovi
+             $CFFE6400 ,  0 , $FFFFFF00 , 0 , \\ vandys cafe
+             $3FF14100 ,  0 , $FFFFFF00 , 0 , \\ vandys t-mobile
+                     0 ,  0 ,         0 , 0 , \\ must be last line
+: ipfw? ( ip -- bool )  ip>ip_src @ ntoh >r   ip_ok
+   begin   dup iphost>addr @ ?dup 0= if   r> 2drop false exit   then
+    over iphost>mask @ r@ and = if   r> 2drop true exit   then
+   iphost.size +   again ;
+
+:noname ( m ip -- )
+   dup ipfw? not if   (tcpdone) tcpstat tcpstats>tcps_connrej inc exit   then
+   dup tcpsock>lsn ?dup 0= if   (tcpdone) exit   then   >r
+   r@ dup tcpcb>iss @ tuck over tcpcb>snd_nxt !   tcpcb>snd_una !
+   ip>ip_src @ ntoh r@ tcpcb>daddr !   dup ( m m )
+   m_data dup tcphdr>th_sport w@ ntohs r@ tcpcb>dport w!
+   dup tcphdr>th_seq @ ntoh dup r@ tcpcb>irs ! 1+ r@ tcpcb>rcv_nxt !
+   dup tcphdr>th_win w@ ntohs r@ tcpcb>rcv_wnd !
+   dup tcphdr>th_off c@ 2 rshift tcphdr.size - ?dup if  r@ tcp_opts   then
+   r@ tcp_send_syn_ack
+   m_freem   TCPS_SYN_RECEIVED r> tcpcb>t_state w!
+   tcpstat tcpstats>tcps_accepts inc ; is tcp_accept
+
+\\ Layer 3 and 4                                                      shacham
+: tcp_init ( ctrl rcv -- tcpcb | false )
+   tcpcbget ?dup 0= if   2drop false exit   then   >r
+   r@ tcpcb.size erase   $FFFF r@ tcpcb>snd_wnd !   r@ tcpcb>iss >iss
+   #MSS r@ tcpcb>t_maxseg w!   r@ tcpcb>receive !   r@ tcpcb>control !
+   tcpiphdr.size dup r@ tcpcb>ipheaders !
+   $FFFC bkalloc r@ tcpcb>so_snd tuck sockbuf>sb_buf !  \\ bkalloc adds a cell
+   so_empty   r@ rxmt_treset
+   ether.size + r@ tcpcb>headers !   r> ;
+
+: tcp_listen ( tcpcb port -- )  swap >r   dup r@ tcpcb>sport w!
+   PORT_TELNET = if   TELNET_OPTLEN dup r@ tcpcb>optln c!
+     dup r@ tcpcb>headers +!   r@ tcpcb>ipheaders +!
+     r@ tcpcb>t_maxseg w@ TELNET_OPTLEN - r@ tcpcb>t_maxseg w!
+     TELNET_SYNOPTLEN r@ tcpcb>synoptln c!   then
+   TCPS_LISTEN r> tcpcb>t_state w! ;
+
+: tcp_close ( tcpcb -- )  TCPS_LAST_ACK over tcpcb>t_state w!   tcp_send_fin ;
+
+: tcp_send_buf ( data dlen tcpcb -- bool )  >r r@ so_add dup if   r> drop   then
+    r@ tcpcb>t_flags w@ TCP_NODELAY and 0<> if   r> snd_left drop   else
+      r> delsndset   then ;
+
+: tcp_done ( tcpcb -- )  tcpcbfree ;
+
+\\ Layer 3 and 4                                                      shacham
+create tsc200m 0 , 0 ,   create tsc500m 0 , 0 ,   create tcp500m 0 , 0 ,
+create tsc8m 0 , 0 ,
+: (200m) ( -- )  tsc1sec 2@ 5 um/mod nip 0 tsc200m 2! ;
+: (500m) ( -- )  tsc1sec 2@ 2 um/mod nip 0 tsc500m 2! ;
+: (8m) ( -- )  tsc1sec 2@ 125 um/mod nip 0 tsc8m 2! ;
+
+:noname ( tcpcb -- )  0 0 rot tcpcb>tt_delack 2! ; is delackclr
+:noname ( tcpcb -- )  dup tcpcb>tt_delack 2@ or 0= if
+  rdtsc tsc200m 2@ d+ rot tcpcb>tt_delack 2!   else   drop   then ; is delackset
+:noname ( tcpcb -- )  0 0 rot tcpcb>tt_delsnd 2! ; is delsndclr
+:noname ( tcpcb -- )  dup tcpcb>tt_delsnd 2@ or 0= if
+  rdtsc tsc8m 2@ d+ rot tcpcb>tt_delsnd 2!   else   drop   then ; is delsndset
+
+: (tcp_drop) ( tcpcb -- )  tcpstat tcpstats>tcps_keepdrops inc
+   dup TCPS_CLOSED >tcpidle
+   API_ABORT over tcpcb>control @ ?dup if   execute   else   2drop   then ;
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcp_fasttimo ( -- )  tcpcbs dup #TCPCB cells + swap do
+    i @ 0<> if
+     i @ tcpcb>tt_delsnd 2@ or 0<> if
+      i @ tcpcb>tt_delsnd 2@ rdtsc d< if
+       i @ snd_left 0> if   tcpstat tcpstats>tcps_delsnd inc   then
+      then   then
+     i @ tcpcb>tt_delack 2@ or 0<> if
+      i @ tcpcb>tt_delack 2@ rdtsc d< if
+       tcpstat tcpstats>tcps_delack inc   i @ tcp_send_ack   then   then
+    then
+   1 cells +loop ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcp_slowtimo ( -- )  tsc500m 2@ tcp500m 2@ dnegate rdtsc d+ d< if
+   tcp_now inc
+   tcpcbs dup #TCPCB cells + swap do
+     i @ 0<> if
+       i @ tcpcb>tt_rxmt w@ ?dup 0> if
+         -1 + ?dup 0= if   tcpstat tcpstats>tcps_rexmttimeo inc
+           i @ tcpcb>t_rxtshift inc   i @ tcpt_rangeset
+           i @ rxmtinit   i @ tcp_rxmt
+         else   i @ tcpcb>tt_rxmt w!   then   then
+       i @ tcpcb>tt_keep @ ?dup 0> if
+         -1 + ?dup 0= if   tcpstat tcpstats>tcps_keeptimeo inc
+           TCPS_ESTABLISHED i @ tcpcb>t_state w@ > if   i @ (tcp_drop)   else
+             TCPS_FIN_WAIT_1 i @ tcpcb>t_state w@ > if
+               i @ tcpcb>tt_idle @ 1- ?dup 0= if   i @ (tcp_drop)   else
+                 i @ tcpcb>tt_idle !   TCP_KEEPINTVL i @ tcpcb>tt_keep !
+                 i @ tcp_send_keepalive   then
+             else    TCP_KEEPIDLE i @ tcpcb>tt_keep !   then
+           then
+         else   i @ tcpcb>tt_keep !   then
+       then   then
+   1 cells +loop
+   tsc500m 2@ tcp500m 2@ d+ tcp500m 2!               \\ avoid timer drift
+  then ;
+
+\\ Layer 3 and 4                                                      shacham
+\\ telnetd
+struct tcmd   int8 iac   int8 command   int8 id   endstruct
+
+251 constant WILL   252 constant WONT   253 constant DO
+254 constant DONT   255 constant IAC
+
+variable telnetdcb   variable telnetd_rcvd
+create telnetdbuf 256 allot
+
+\\ telnet init message - will suppress go ahead, will echo, \\r\\n
+create telnetd_msg  IAC c, WILL c, 3 c, IAC c, WILL c, 1 c, 13 c, 10 c,
+8 constant #TELNETDMSG
+
+defer telnetd-init
+: telnetd_ctrl ( tcpcb event -- )
+   dup API_ACCEPT = if   drop       ( tcpcb )
+    telnetd_msg #TELNETDMSG rot tcp_send_buf   drop exit   then
+   dup API_CLOSE = if   drop tcp_close exit   then
+   dup API_CLOSED = if  drop tcp_done   0 telnetdcb !   telnetd-init exit   then
+   API_ABORT = if   tcp_done   0 telnetdcb !   telnetd-init exit   then
+   drop ;
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: tcmd? ( tcmd -- bool )  tcmd>iac c@ IAC = ;
+: tcmdid@ ( tcmd -- id )  tcmd>id c@ ;
+: tcmdc@ ( tcmd -- command )  tcmd>command c@ ;
+
+: tcmdget ( d-out d-in -- len )
+   dup tcmdid@ 3 > if   >r   \\ ignoe our options 'echo' and 'suppres go ahead'
+     IAC over tcmd>iac c!   r@ tcmdid@ over tcmd>id c!
+     r@ tcmdc@ DO = if   WONT over tcmd>command c!   then
+     r@ tcmdc@ WILL = if   DONT over tcmd>command c!   then
+     r> 3   else   0   then   nip nip ;
+
+defer >t_buf
+: telnetd_rcv ( mbuf tcpcb -- )  telnetd_rcvd inc       ( m-in tcpcb )
+   telnetdbuf rot                                       ( tcpcb d-out m-in )
+   dup m_hdr>mh_len @ swap m_data dup rot + swap do     ( tcpcb d-out )
+     i tcmd? if   dup i tcmdget   +   3
+     else   i c@ ?dup 0<> if   >t_buf   then   1   then
+   +loop
+   telnetdbuf - ( tcpcb len ) ?dup 0= if   drop   else  ( tcpcb len )
+     telnetdbuf swap rot ( d-out len tcpcb ) tcp_send_buf drop   then ;
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+:noname ( -- )   ['] telnetd_ctrl ['] telnetd_rcv tcp_init ?dup 0<> if
+   dup telnetdcb !   PORT_TELNET tcp_listen   then ; is telnetd-init
+
+: telnetd_sendc ( c -- bool )  telnetdbuf tuck c!   1 telnetdcb @ tcp_send_buf ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: l3l4-init ( -- )
+   calc_tscfreq \\ TODO part of generic os, right?
+   (60sec)   (200m)   (500m)   (8m)   (bcstinit)
+   arptab arpentry.size #ARPS * erase   rdtsc arp1min 2!
+   ipst stats.size erase
+   arpst stats.size erase
+   icmpst stats.size erase
+   pings PINGS pingcb.size * erase
+   udpst stats.size erase
+   tcpcbs #TCPCB cells erase
+   tcpstat tcpstats.size erase   0 tcp_now !
+   telnetd-init ;
+
+: net-show ( -- )
+   xlst xlstats.size dump
+   enst enstats.size dump
+   ipst stats.size dump
+   arpst stats.size dump
+   icmpst stats.size dump
+   udpst stats.size dump
+   mstat m_st.size dump ;
+
+
+
+\\ Layer 3 and 4                                                      shacham
+128 constant TELBUF
+create t_typing TELBUF allot   variable t_ntyped
+
+: t_typing_deq ( -- c )   t_typing c@ ( c )
+   t_ntyped @ 1- dup t_ntyped ! ( c u )
+   ?dup if   t_typing dup 1+ swap rot move   then ;
+
+:noname ( c -- )
+   t_ntyped @ dup TELBUF = if   2drop   else   ( c u )
+     t_typing + c!   t_ntyped inc   then ; is >t_buf
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+\\ Note bulk put only works for system standard console geometry (80x25)
+: esc ( -- )   27 emit ;
+
+: ansi_put_scr ( a -- )   CONS_ROWS 0 do
+      esc [char] [ emit    i 1+ 1 u.r .\" ;1H\"
+      esc .\" [K\"   dup CONS_COLS -trailing type
+   CONS_COLS + loop   drop ;
+
+: ansi_cons_op ( ... op -- ... op F | T )
+
+   dup 3 = if   drop
+      esc .\" [m\"   esc .\" [7h\"   esc .\" [2J\"   esc .\" [H\"
+      true exit then
+   dup 4 = if   drop   swap
+      esc [char] [ emit   1+ 1 u.r   [char] ; emit
+      1+ 1 u.r [char] H emit   true exit then
+   dup 5 = if   drop   esc .\" [K\"   true exit then
+   dup 6 = if   drop   esc [char] [ emit
+      if   [char] 1 emit   then   [char] m emit   true exit then
+   dup 8 = if   drop   ansi_put_scr   true exit then
+   false ;
+
+
+
+\\ Layer 3 and 4                                                      shacham
+: t_cons_op ( op -- ... )   pause   dup 2 = if   drop
+      t_ntyped @ if   t_typing_deq true   else   false   then
+      exit then
+   dup 1 = if   drop   begin   dup telnetd_sendc   if   pause   else
+    drop exit   then   repeat
+   ansi_cons_op if exit then
+   1 abort\" Bad t_cons_op\" ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Layer 3 and 4                                                      shacham
+variable _signal 0 ,
+: >signal ( bool -- )  _signal ! ;
+: signal? ( -- bool )  _signal @ ;
+
+: net-init ( -- )  pci-en-init   l3l4-init   xlattach   xlinit ;
+: (netrun) ( -- )  xltimer   arptimer   tcp_slowtimo   tcp_fasttimo ;
+: netfg ( -- )  begin   (netrun) pause   signal? if   exit   then   again ;
+: netproc ( -- )  begin   (netrun) pause   again ;
+
+: >'ttyops ( a-user -- a-'ttyops )   [ 'ttyops up @ - ] literal   + ;
+
+: net-start ( -- )  net-init
+   fork ?dup 0= if   netproc   then   setrun
+   fork ?dup 0= if   quit    then
+   ['] t_cons_op over >'ttyops !   0 over >ttchan !   setrun ;
+
+only
+
+
+
+
+
+
+
+"

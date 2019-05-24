@@ -1,0 +1,376 @@
+"\\                                                                    shacham
+\\ Ethernet PCI NIC driver (3Com 3c905B)
+only
+vocabulary net
+only extensions also net definitions
+
+32 constant #PCI   6 constant #MAC   1540 constant #PKT
+
+struct xldat   intcell media   intcell cap   intcell xcvr   intcell baseport
+endstruct
+create xldata  xldat.size allot
+
+create pcislot $FFFF ,  \\ default to no XL present
+
+create macaddr  #MAC allot align \\ byte array in network order
+create enbrdcst   $FF c, $FF c, $FF c, $FF c, $FF c, $FF c, align \\ broadcast
+
+defer delay
+
+
+
+
+
+
+
+\\                                                                    shacham
+128 constant #XLRX   256 dup constant #XLTX   1 - constant #XLTXMSK
+  7 constant #FRAGS   60 constant #XLTXMIN
+
+struct xlfrag   int32 addr   int32 len   endstruct
+struct xlrxlist   int32 next  int32 status   int32 frag>addr
+   int32 frag>len   endstruct
+struct xltxlist   int32 next  int32 status
+   xlfrag.size #FRAGS * bytes frags   endstruct
+
+struct xlstats   intcell lost   intcell sq_err   intcell tx_multi_col
+   intcell tx_single_col   intcell tx_late_col   intcell rx_overrun
+   intcell tx_frames_ok   intcell rx_frames_ok   intcell tx_deferred
+   intcell upper_ok   intcell rx_bytes   intcell tx_bytes
+   intcell status   intcell rx_ok   intcell rx_err   intcell tx_req
+   intcell tx_overrun   intcell tx_ok    intcell tx_bad   intcell tx_eoc
+   intcell rx_eoc   intcell rx_rol   intcell notrdy   intcell eenotrdy
+ endstruct
+
+
+
+
+
+
+
+\\ mbuf                                                               shacham
+struct m_hdr   int32 mh_next   int32 mh_nxtpkt    int32 mh_data
+   int32 mh_len   int16 mh_type   int16 mh_flags   endstruct
+struct m_pkthdr   int32 rcvif   int32 len   int32 header
+   int32 csum_flags   int32 csum_data   int32 tags   endstruct
+m_hdr.size m_pkthdr.size + constant #MHDR
+2048 constant #MBUF
+
+: m_data ( m -- a )  m_hdr>mh_data @ ;
+: m_init ( l m -- )  dup >r over #MHDR + erase \\ clear mbuf header and packet
+   r@ #MHDR + r@ m_hdr>mh_data !
+   dup r@ m_hdr>mh_len !   3 r@ m_hdr>mh_flags c!
+   1 r@ m_hdr>mh_type c!   r> m_hdr.size + m_pkthdr>len ! ;
+
+: m_adjlen ( m l -- )  >r dup m_hdr>mh_len dup @ r@ - swap !
+   m_hdr.size + m_pkthdr>len dup @ r> - swap ! ;
+: m_adj ( m l -- )  over m_hdr>mh_data over swap +!   m_adjlen ;
+
+struct m_st   intcell get   intcell free   intcell rxget   intcell txfree
+ endstruct
+create mstat  m_st.size allot
+: m_get ( l -- m )  #MBUF 1 cells - bkalloc tuck   m_init   mstat m_st>get inc ;
+: m_freem ( m -- )  bkfree   mstat m_st>free inc ;
+
+
+\\                                                                    shacham
+create xlrxlst    xlrxlist.size 1+ #XLRX * allot
+create xltxlst    xltxlist.size 1+ #XLTX * allot
+variable xlrxalg  \\ 8-byte aligned xlrxlst
+variable xltxalg  \\ 8-byte aligned xltxlst
+
+create xlst       xlstats.size allot
+
+variable xlrxhead
+variable xltxhead   variable xltxtail   variable xltxcnt   variable xltxmin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ PCI generic access                                                 shacham
+: pcien ( slot reg -- port )  tuck $FC and swap 11 lshift + $80000000 + $CF8
+   outl   3 and $CFC + ;
+
+: pciid ( slot -- u )  0 pcien inl dup if   dup -1 = if   drop 0   then   then ;
+
+: pcicls ( slot -- u )  8 pcien inl 8 rshift   dup if   dup $F870FF and if
+   drop 0   then   then ;
+
+: pcihdr ( slot -- u )  14 pcien inb dup $7E and if   drop $7E   then ;
+
+: pcibus ( slot -- )  4 pcien dup inw 7 or swap outw ;
+
+\\ pcishow      Show range n2 to n1 PCI slots (nonoperational word...)
+: pcishow ( n1 n2 -- )  base @ -rot hex   do
+             i pciid ?dup if   cr   .\" slot \" i .   .\"  id  \" .
+             i pcicls ?dup if   .\"  class \" .   then
+             i pcihdr dup $7E <> if   .\"  header \" .   else   drop   then
+           then   loop   base ! ;
+
+
+
+
+
+
+\\ XL access                                                          shacham
+: xlreg  ( u -- n )  xldata xldat>baseport @ +   ;
+: xlcmd  ( u -- )  $E xlreg outw ;
+: xlrdy ( -- )  1000 0 do   $E xlreg inw $1000 and 0= if   unloop exit   then
+   loop   xlst xlstats>notrdy inc ;
+: xlcmdrdy ( u -- )  xlcmd   xlrdy ;
+: xlcmdwt ( u -- )  xlcmd   100 delay   xlrdy ;
+: xleepwt  ( -- )  1000 0 do   $A xlreg inw $8000 and 0= if   unloop exit
+   then   loop   xlst xlstats>eenotrdy inc ;
+: xlwin  ( u -- )  $800 + xlcmd ;
+: xlinb2  ( u -- n )  dup xlreg inb swap 1+ xlreg inb 8 lshift + ;
+: xleeprom  ( u -- n )  $80 + $A xlreg outw   xleepwt   $C xlreg inw   ;
+: xlstop ( -- )  $1800 xlcmd   $B000 xlcmd   $7000 xlcmd   $4000 xlcmdrdy
+  $5000 xlcmd   $B800 xlcmd 2 delay   $6801 xlcmd   $7800 xlcmd   $7000 xlcmd ;
+: xlrxrst ( -- )  $2800 xlcmdwt ;
+: xltxrst ( -- )  $5800 xlcmdwt ;
+: xlreset ( -- )  0 xlcmdrdy   xlrxrst   xltxrst   100 delay ;
+: xleepcfg ( -- )  0 xlwin
+   macaddr 3 0 do   i xleeprom 2dup 8 rshift swap c! over 1+ c! 2 +   loop drop
+   $10 xleeprom   xldata xldat>cap !
+   $13 xleeprom   $F0 and xldata xldat>xcvr ! ;
+: xlcoax ( -- )  3 xlwin   $B800 xlcmd ;
+: xlcfg ( -- )  3 xlwin   8 xlreg inw xldata xldat>media !
+   0 xlreg inl   $FF0FFFFF and $800000 + 0 xlreg outl   xlcoax ;
+
+\\                                                                    vandys
+: xlfind? ( -- bool )  #PCI 0 do   i pciid $905510B7 = if
+   i pcislot !   i $10 pcien inl $FFF0 and xldata xldat>baseport !   i pcibus
+   unloop true exit   then   loop   false ;
+: xl? ( -- bool )  #PCI pcislot @ > ;
+
+: xlattach ( -- )  xlfind? if   xlreset   xleepcfg   xlcfg   then ;
+: xldetach ( -- )  xl? if   xlreset   xlstop   then ;
+
+: xlstat ( -- )  6 xlwin   xlst 10 0 do   i xlreg inb over +! 4 +   loop
+   14 10 do   i xlinb2 over +! 4 + 2   +loop   14 xlinb2 swap !
+   4 xlwin $C xlreg inb drop   7 xlwin ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    shacham
+: xladdr ( -- )  2 xlwin   macaddr #MAC 0 do   dup c@ i xlreg outb 1+   loop
+   drop   12 #MAC do   0 i xlreg outw   2 +loop ;
+: xltxthr ( -- )  #PKT 8 rshift $2F xlreg outb
+   xltxmin @ $9800 + xlcmd   $C000 #PKT 4 rshift or xlcmd ;
+: xlrxfltr ( -- )  $8005 xlcmd ;
+: xlrxaddr ( -- )  $3000 xlcmdrdy   xlrxalg @ dup xlrxhead !
+   $38 xlreg outl   $3001 xlcmdrdy ;
+
+: xltxi2a ( n -- a )  xltxlist.size * xltxalg @ + ;
+: xltxi& ( n -- n' )  #XLTXMSK and ;
+: xltxcura ( n -- )  xltxi2a $24 xlreg outl ;
+: xltxpoll ( -- )  64 $2D xlreg outb ;
+: xltxaddr ( -- )  xltxpoll   $3002 xlcmdrdy   0 xltxcura   $3003 xlcmdrdy ;
+: xltxen ( -- )  $4800 xlcmdrdy ;
+
+: xlpkt ( -- )  3 xlwin   #PKT 4 xlreg outw ;
+: xlstaten ( -- )  4 xlwin   $40 6 xlreg outw   $A800 xlcmd ;
+: xlinten ( -- )  $68FF xlcmd   $687 $7800 + xlcmd   $687 $7000 + xlcmd ;
+: xlrxthr ( -- )  $8800 #PKT 2 rshift + xlcmd   $20 $20 xlreg outw ;
+
+: (align8) ( a -- a' )  7 + $FFFFFFF8 and ;
+
+
+
+\\                                                                    shacham
+: xlrxmget ( l -- )  #PKT m_get   m_data over xlrxlist>frag>addr !
+   #MBUF $80000000 + swap xlrxlist>frag>len !   mstat m_st>rxget inc ;
+
+: xlrxinit ( -- )  xlrxlst (align8) dup xlrxalg !   #XLRX 0 do
+    dup xlrxlist.size erase   dup xlrxmget
+    i 1+ #XLRX = if   xlrxalg @   else   dup xlrxlist.size +   then
+    tuck swap xlrxlist>next !
+   loop   drop ;
+
+: xltxinit ( -- )  xltxlst (align8) dup xltxalg !   dup xltxlist.size erase
+   $20000000 swap xltxlist>status !   1 xltxhead !   1 xltxtail !
+   0 xltxcnt !   #XLTXMIN xltxmin ! ;
+: xlbufclr ( -- )  xlst xlstats.size erase ;
+
+: xlinit ( -- )  xl? if   xlbufclr
+   xlstop   xlrxrst   xltxrst 10 delay   xladdr   xlrxinit   xltxinit   xltxthr
+   xlrxfltr   xlrxaddr   xltxaddr   xlcoax   xlpkt   $B000 xlcmd   xlstat
+   xlstaten   ( xlinten )   xlrxthr
+   xltxen   $2000 xlcmdrdy   7 xlwin   then ;
+
+
+
+
+
+\\ receive                                                            shacham
+: xlrxok? ( st -- len T | F )  dup $4000 and 0= if   dup $8000 and 0<> if
+   $1FFF and dup #PKT 4 + swap > if   true exit   then   then   then
+   drop false ;
+: xlrxeoc ( -- )  $38 xlreg inl 0<> if   $30 xlreg inl $2000 and 0= if
+   exit   then   then   xlrxaddr   xlst xlstats>rx_eoc inc ;
+: (l4ok) ( mp f -- mp f' )  $C00 or   over m_pkthdr>csum_data $FFFF swap ! ;
+: xlrxip ( mp st -- )  >r
+   r@ $20000000 and 21 rshift   r@ $02000000 and 16 rshift $200 xor or
+   r@ $44000000 and $40000000 = if   (l4ok)   then
+   r> $88000000 and $80000000 = if   (l4ok)   then
+   swap m_pkthdr>csum_flags ! ;
+defer etherin
+: xlrx ( -- )  xlrxhead @ begin
+   dup xlrxlist>status @ ?dup while
+     tuck xlrxok? if   xlst xlstats>rx_ok inc
+       over xlrxlist>frag>addr @ #MHDR - 2dup m_hdr>mh_len !
+       dup >r m_hdr.size + tuck m_pkthdr>len !   rot xlrxip \\ r> dup etherin
+       dup xlrxmget   r> etherin ( 0 swap m_init )
+     else   nip   xlst xlstats>rx_err inc   then
+     0 over xlrxlist>status !   xlrxlist>next @ dup xlrxhead !
+     dup xlrxalg @ = if   xlst xlstats>rx_rol inc   then
+   repeat   drop   xlrxeoc ;
+
+
+\\ transmit                                                           shacham
+: xltxovr? ( -- bool )  3 #XLTX xltxcnt @ - > ;
+
+: xltxip ( m l -- )  swap m_hdr.size + m_pkthdr>csum_flags @ 7 and 25 lshift
+   $10000000 or ( over xltxlist>status @ or ) swap xltxlist>status ! ;
+
+: xltxenc ( m l -- bool )  2dup dup xltxlist>frags   #FRAGS 0 do
+     >r over m_hdr>mh_len @ ( 2dup swap xltxlist>status +! ) \\ accumulate len
+     r@ xlfrag>len !                        \\ fragment length
+     over m_data r@ xlfrag>addr !           \\ and data address
+     swap m_hdr>mh_next @ dup 0= if         \\ next mbuf in chain
+       2drop r> xlfrag>len dup @ $80000000 or swap !  \\ mark last frag
+       xltxip   unloop false exit    then   \\ add ip flags, all done
+     swap r> xlfrag.size +                  \\ next frag
+  loop   2drop 2drop true ;                 \\ too many frags
+
+: xltx ( m -- )  dup 0= if   drop xlst xlstats>tx_bad inc exit   then
+   xltxovr? if   drop xlst xlstats>tx_overrun inc exit   then
+   xltxhead @ xltxi2a dup xltxlist.size erase
+   xltxenc if   xlst xlstats>tx_bad inc exit   then
+   xltxhead @ 1- xltxi& xltxi2a xltxlist>next xltxhead @ xltxi2a swap !
+   xltxhead dup @ 1+ xltxi& swap !   xltxcnt inc   xlst xlstats>tx_req inc ;
+
+
+
+\\                                                                    shacham
+: xltxfree ( l -- )  xltxlist>frags   #FRAGS 0 do
+     dup xlfrag>addr @ ?dup 0= if   unloop drop exit   then
+     #MHDR - m_freem   mstat m_st>txfree inc   xlfrag.size +   loop   drop ;
+
+: xltxeof ( -- )  xltxhead @ xltxtail @ begin
+    2dup = if   2drop exit   then
+    dup xltxi2a dup xltxlist>status @ $10000 and 0= if   drop 2drop exit   then
+    xltxfree   1+ xltxi& dup xltxtail !   -1 xltxcnt +!   xlst xlstats>tx_ok inc
+   again ;
+
+: xltxeoc ( -- )  #XLTX 0 do  \\ avoid an infinite loop
+     $1B xlreg inb ?dup 0= if   unloop exit   then
+     $32 and ?dup 0<> if
+       xltxrst   xltxtail @ xltxcura   xltxpoll
+       $10 and 0<> if   #XLTXMIN xltxmin +!   then   xltxthr
+       xlst xlstats>tx_eoc inc   then
+     xltxen   $3003 xlcmd   1 $1B xlreg outb
+   loop   .\" xl txeoc - too many events\" ;
+
+: xltimer ( -- )  xlrx   xltxeof   xltxeoc   xlstat ;
+
+
+
+
+\\                                                                    shacham
+: htons ( u -- u' )  dup 8 lshift $FF00 and   swap 8 rshift $FF and   or ;
+: ntohs ( u -- u' )  htons ;
+: hton ( u -- u' )  dup htons 16 lshift   swap 16 rshift htons   or ;
+: ntoh ( u -- u' )  hton ;
+: htonl ( u -- u' )  hton ;
+: ntohl ( u -- u' )  hton ;
+
+: htons! ( u a -- )  over 8 rshift over c!   1+ c! ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Ethernet                                                           vandys
+2 constant #TYPE   $800 constant ENIP   $806 constant ENARP
+1500 constant #ENDATA
+struct ether   #MAC bytes dhost   #MAC bytes shost   #TYPE bytes type
+endstruct
+struct enstats   intcell ok   intcell shrt   intcell u   intcell xmt   endstruct
+create enst   enstats.size allot
+defer ip_input   defer arpinput   defer arprslv
+:noname ( m -- )  dup m_hdr>mh_len @ ether.size > if   enst enstats>ok inc
+     dup m_data ether>type @ ntohs   over ether.size m_adj
+     dup ENIP = if   drop   ip_input   exit   then
+     ENARP = if   arpinput   exit   then
+     m_freem   enst enstats>u inc
+   else   m_freem   enst enstats>shrt inc   then ; is etherin
+
+: enoutraw ( m -- )  xltx ;
+: enhdr ( d s t a -- )  >r r@ ether>type htons!
+   r@ ether>shost #MAC cmove   r> ether>dhost #MAC cmove ;
+
+: enbuild ( m ha -- )  over ether.size negate m_adj
+   swap >r macaddr ENIP r> m_data enhdr ;
+
+: enout ( m dst -- )  arprslv ?dup 0= if   m_freem   else
+   over swap enbuild   enoutraw   enst enstats>xmt inc   then ;
+
+\\                                                                    shacham
+
+: entxtst ( -- )  17 m_get >r                \\ init mbuf
+   enbrdcst macaddr 3 r@ m_data enhdr        \\ Ethernet header
+   $E3 r@ m_data ether.size + 2 + c!         \\ Ethernet load
+   r> enoutraw ;                             \\ xmit
+
+: pci-en-init ( -- )  enst enstats.size erase   mstat m_st.size erase ;
+
+only
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

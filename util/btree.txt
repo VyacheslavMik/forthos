@@ -1,0 +1,376 @@
+"\\ B-trees                                                            vandys
+\\ The order of the B-tree nodes is set at compile time.  Nodes
+\\  can be deleted, but no tree reblancing occurs, so an unbalanced
+\\  B-tree is possible.
+
+\\ A node has a cell for the parent, and for the child
+\\  before the lowest key, followed by #BNODE pairs of cells.
+
+\\ Each pair is made up of a key and a value.
+
+\\ If a node holds leafs, then the child pointer is 0, otherwise this
+\\  node is interior.  For leaf nodes, the \"value\" of each pair is
+\\  is the actual value for the given key.  For interior nodes, the
+\\  value is a pointer to a sub-node.
+
+\\ The \"key\" for interior nodes indicates the starting range for the
+\\  key space below it.  The initial cell holds a pointer to a sub-node
+\\  for keys before the lowest key value in the node.
+
+\\ The \"key\" value must be non-zero, as this implementation uses that
+\\  value as a sentinel for end of valid key/value pairs.
+\\     MORE COMMENTS ON SHADOW
+
+
+
+\\ B-trees basic manipulation                                         vandys
+only extensions definitions
+
+32 dup constant #BNODE Local   1+ 2* cells constant BNSIZE Local
+: (bn>parent) ( node -- parentptr ) ; Local
+: (bnode) ( parent -- node )   BNSIZE bkzalloc   tuck (bn>parent) ! ; Local
+: (bn>child) ( node -- childptr )   cell+ ; Local
+: (bn>pairs) ( node -- ptr )   cell+ cell+ ; Local
+: (bnleaf?) ( node -- <bool> )   (bn>child) @ 0= ; Local
+: (bnroot?) ( node -- <bool> )   (bn>parent) @ 0= ; Local
+: btempty? ( node -- <bool> )   (bn>pairs) @ 0= ; Local
+
+: (bnindex) ( key node -- keyptr )
+   (bn>pairs) begin   @+ ?dup   while ( key node-val node-key )
+      2 pick u> if   nip cell- exit   then
+   cell+ repeat   nip cell- ; Local
+
+: btalloc ( -- btree )   0 (bnode) ; Local
+
+
+
+
+
+
+
+\\ B-trees lookup                                                     vandys
+
+: (key>leaf) ( key node -- node' )   begin   dup (bnleaf?) not   while
+      over swap (bnindex) cell- @   repeat   nip ; Local
+
+: bt@ ( key node -- val T | F )   over 0= abort\" Bad key\"
+   dup btempty? if   2drop false exit then
+   over swap (key>leaf) ( key leafnode )
+   over swap (bnindex) cell- cell- ( key keyptr )
+   tuck @ = if   cell+ @ true   else   drop false   then ; Local
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ B-trees insertion                                                  vandys
+
+: (bnfull?) ( node -- <bool> )
+   (bn>pairs) #BNODE 1- 2* cells + @ 0<> ; Local
+
+variable 'count Local
+: (bninsert) ( val key node keyptr -- )   'count @ ?dup if inc then
+   tuck ( val key keyptr node keyptr )
+   swap (bn>pairs) - 2 cells /   ( val key keyptr cnt )
+   #BNODE swap - 1- 2* cells   ( val key keyptr cntcells )
+   over dup cell+ cell+   rot move   2! ; Local
+
+: (bnset) ( val key node -- )   2dup (bnindex)   ( val key node keyptr )
+   dup cell- cell- @ 3 pick = if   nip nip cell- !
+   else   (bninsert)   then ; Local
+
+
+
+
+
+
+
+
+
+
+\\ B-trees insertion                                                  vandys
+
+: (reparent) ( node subnode -- )   (bn>parent) ! ; Local
+: (bnreparent) ( node -- )   dup (bnleaf?) abort\" Reparent leaf\"
+   dup dup (bn>child) @ (reparent)
+   dup (bn>pairs) begin   @+   while
+      @+ ( node nextkeyptr valnode )
+      2 pick swap (reparent)   repeat 2drop ; Local
+
+: (copy2ndleaf) ( node node' -- )   swap (bn>pairs) #BNODE cells +
+   swap (bn>pairs)   #BNODE cells move ; Local
+: (copy2nd) ( node node' -- )   over (bnleaf?) if
+      (copy2ndleaf) exit   then
+   swap (bn>pairs) #BNODE 1+ cells +
+   swap (bn>child)   #BNODE 1- cells move   dup (bnreparent) ; Local
+
+: (clear2nd) ( node -- key )   (bn>pairs) #BNODE cells +
+   dup @ swap   #BNODE cells erase ; Local
+
+: (bnhalve) ( node -- node node' key' )   dup (bn>parent) @ (bnode)
+   2dup (copy2nd)   over (clear2nd) ; Local
+
+
+
+
+\\ B-trees insertion                                                  vandys
+
+: (bnclone) ( node -- node' )   BNSIZE bkalloc   tuck BNSIZE move
+   dup (bnleaf?) not if   dup (bnreparent)   then ; Local
+
+: (rootParents) ( root node2 key2 node1 -- root node2 key2 node1 )
+   3 pick over (bn>parent) !   3 pick 3 pick (bn>parent) ! ; scrLocal
+: (bnAddRoot) ( root node2 key2 -- )
+   2 pick (bnclone)   (rootParents)   ( root node2 key2 node1 )
+   >r rot dup BNSIZE erase ( node2 key2 root R: node1 )
+   dup >r (bn>pairs) 2!   r> r> swap (bn>child) ! ; Local
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ B-trees insertion, enumeration                                     vandys
+: (bnsplit) ( node -- node' )
+   (bnhalve)   ( node node' key' )   over (bnroot?) if
+      2 pick >r   (bnAddRoot)   else
+      rot (bn>parent) @   dup >r   (bnset)   then   r> ; Local
+
+: bt! ( value key node -- )   dup btempty? if
+      (bn>pairs) 2!   exit then
+   over swap (key>leaf) ( value key leafnode )
+   dup >r (bnset) r> ( leafnode )
+   begin   dup (bnfull?)   while   (bnsplit)   repeat drop ; Local
+
+: (btDo) ( arg fn bt -- )   begin   cell+ cell+ dup @   while
+   3dup 2@ rot execute   repeat   3drop ; Local
+: btDo ( arg fn bt -- )   dup (bnleaf?) if   (btDo) exit   then
+   cell+ >r 2dup r@ @ recurse   r>
+   begin cell+ @+ while   3dup @ recurse
+   repeat   3drop ; Local
+
+
+
+
+
+
+
+\\ B-trees testing                                                    vandys
+
+[ifdef] TESTING \\ Testing
+variable (bcheckKey)
+: (checkKey) ( key -- )   dup (bcheckKey) @ <= abort\" Bad key\"
+   (bcheckKey) ! ;
+: (bcheckLeaf) ( node -- )   dup (bn>child) @ abort\" Child\"
+   (bn>pairs) begin   @+ ?dup while   ( valptr curkey )
+      (checkKey)   cell+ repeat   drop ;
+
+: (bcheck) ( parent node -- )   tuck
+   (bn>parent) @ - abort\" Parent mismatch\"
+   dup (bnleaf?) if   (bcheckLeaf) exit   then
+   dup dup (bn>child) @ recurse
+   dup (bn>pairs)   begin   @+   ?dup while   (checkKey)
+      @+ ( node nextkeyptr subnode )
+      -1 (bcheckKey) +!   2 pick swap recurse ( node nextkeyptr )
+   repeat   2drop ;
+
+: bcheck   ( node -- )   dup (bnroot?) not abort\" Not at root\"
+   (bcheckKey) off   0 swap (bcheck)
+   .\" Highest key is\" (bcheckKey) ? cr ;
+
+
+
+\\ B-trees testing, display, size                                     vandys
+
+btalloc constant b
+: (tb)   dup .   b bcheck ;
+: tb   extensions.randstate off
+   10000 0 do   i   extensions.random 100000 mod
+   b bt!   loop ;
+
+[then] \\ TESTING
+
+: (.leaf) ( arg val key -- )   space
+   1 u.r .\" ->\"  1 u.r   drop ;
+: .bt ( bt -- )   0 swap ['] (.leaf) swap btDo ; Local
+
+
+
+
+
+
+
+
+
+
+
+
+\\ B-trees cleanup                                                    vandys
+
+: (btfree) ( bt -- )   dup (bnleaf?) if   bkfree exit   then
+   cell+ @+ recurse   begin @+ while   dup @ recurse
+      cell+ repeat ; scrLocal
+
+: btfree ( bt -- )   (btfree) bkfree ; Local
+
+: btempty! ( bt -- )   (btfree)   BNSIZE erase ; Local
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ B-trees key utilities                                              vandys
+
+: (nextover) ( bt -- bt' T | F )   dup (bn>parent) @ ( bt parent )
+   dup 0= if   nip exit   then
+   (bn>child) ( bt 'val ) begin
+      2dup @ = if
+         cell+ @+ if   nip @ true exit   else
+            drop (bn>parent) @   tailrecurse then
+      then
+   cell+ @+ 0= until   1 abort\" Child not in parent\" ; scrLocal
+
+: (bt>sib) ( bt -- bt' T | F )   (nextover) 0= if   false exit   then
+   begin   dup (bnleaf?) 0=   while   (bn>child) @   repeat
+   true ; scrLocal
+
+: btnextKey ( u bt -- u' T | F )   over swap (key>leaf) ( u btleaf )
+   tuck (bnindex)   ( bt 'key ) @ ?dup if   nip true exit   then
+   (bt>sib) 0= if   false exit   then
+   (bn>pairs) @ true ; Local
+
+
+
+
+
+
+\\ B-trees more key utilities                                         vandys
+
+: (bn>lastkey) ( bt -- 'key )   (bn>pairs) begin @+ while
+      cell+   repeat   cell- cell- cell- ; Local
+: bttopKey ( bt -- key )   dup btempty? abort\" Empty btree\"
+   begin   dup (bn>lastkey)   swap (bnleaf?) if   @ exit   then
+      cell+ @   again ; Local
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ B-trees more key utilities                                         vandys
+
+: bt>prev ( bt parent -- bt' | 0 )   (bn>pairs) begin @+ while
+      ( bt a-val ) 2dup @ = if   nip cell- cell- @ exit   then
+   cell+ repeat   2drop 0 ; scrLocal
+: bt>lastLeaf ( bt -- bt' )   begin   dup (bnleaf?) 0=   while
+      (bn>lastkey) cell+ @   repeat ; scrLocal
+: bt>-sib ( btleaf -- btleaf' )
+   begin   dup (bn>parent) @   ?dup while ( bt parent )
+      tuck bt>prev   ?dup if   nip bt>lastLeaf exit   then
+   repeat   drop 0 ; scrLocal
+
+: backup ( btleaf a-key -- btleaf' a-key' T | F )
+   over (bn>pairs) over <> if   cell- cell- true exit   then
+   drop bt>-sib dup if   dup (bn>lastkey) true exit   then ; Local
+
+
+
+
+
+
+
+
+
+
+\\ B-trees more key utilities                                         vandys
+
+: btprevKey ( u bt -- u' T | F )   over swap (key>leaf) ( u btleaf )
+   2dup (bnindex)   ( u btleaf a-key )
+   backup 0= if   drop false exit   then
+   2 pick over @ = if   backup 0= if   drop false exit   then   then
+   nip nip @   true ; Local
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ B-trees OO class wrapper                                           vandys
+Collection -> subclass: Btree
+   ivars: intcell tree   intcell count endivars
+Btree -> class -> :method new ( self -- bt )   super-> new ( bt )
+   btalloc over Btree>tree ! method;
+Btree -> :method ! ( val key self -- )   dup Btree>count 'count !
+   Btree>tree @ bt!   'count off method;
+Btree -> :method @ ( key self -- val T | F )   Btree>tree @ bt@ method;
+Btree -> :method do ( arg self -- )   Btree>tree @ btDo method;
+Btree -> :method .elems ( self -- )   Btree>tree @ .bt method;
+Btree -> :method free ( self -- )   dup Btree>tree @ btfree
+   super-> free method;
+Btree -> :method nextKey ( u self -- u' )   Btree>tree @ btnextKey method;
+Btree -> :method topKey ( self -- u )   Btree>tree @ bttopKey method;
+Btree -> :method prevKey ( u self -- u' )   Btree>tree @ btprevKey method;
+Btree -> :method size ( self -- u )   Btree>count @ 1+ method;
+
+Btree -> :method in? ( key self -- ? )   -> @   dup if nip then method;
+Btree -> :method empty! ( self -- )   btempty! method;
+
+
+
+
+
+
+"

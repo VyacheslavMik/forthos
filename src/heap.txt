@@ -1,0 +1,126 @@
+"\\                                                                    vandys
+\\ heap.f
+\\       Heap allocator wordset
+\\
+\\ A very simple first-fit algorithm.  Coalescing is only done when
+\\ explicitly requested.  This permits allocation and free to be very
+\\ simple and very fast, but assumes that there will be points in time
+\\ where CPU time may be spent scanning the potentially fragmented
+\\ free list and reassembling contiguous runs of memory.  Pay me now
+\\ or pay me later.
+\\
+\\ The first two words of each memory block on the free list are
+\\  formatted as a size field, followed by a next pointer.  To
+\\  permit compatibility with the allocated format, the size field
+\\  value does not include the \"size\" field itself, but does include
+\\  the \"next\" field.
+\\ Allocated blocks are seen as the memory pointer by the application;
+\\  at cell- is a word recording the size of the allocated block,
+\\  which does not include this \"size\" word.
+\\
+\\ No memory is initially available to the heap.  A simple initialization
+\\ might be: here 65536 add-memory 65536 allot
+
+
+
+\\                                                                    vandys
+extensions definitions
+
+variable heap	\\ Free blocks hang here
+4 cells constant MINALLOC
+
+\\ Contribute memory to the free pool
+: add-memory ( a u -- )
+    cell- over ! heap @ over cell+ ! heap !
+;
+
+\\ Tell size of largest allocation which would succeed
+: available ( -- u )
+    0 heap @ begin ?dup while
+	dup @ rot max swap
+    cell+ @ repeat
+;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Split memory segment if appropriate, consuming requestor's size value.
+\\ Returned pointer is always the original one, but its \"next\" field
+\\ may have been adjusted to point to a newly created segment split
+\\ off from the original chunk.
+: (split)	( ptr u -- ptr )
+    \\ If only one would fit, use it all
+    2dup 2* swap @ > if drop exit then
+    \\ Calculate new chunk addr, assign it remainder of space
+    2dup + >r over @ over - r@ !
+    \\ Copy old next pointer into place
+    over cell+ @ r@ cell+ !
+    \\ Point next pointer at this new chunk
+    over cell+ r> swap !
+    \\ Adjust size to be just the requested amount
+    over !
+;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Allocate memory
+: allocate ( u -- a 0 | ior )
+    aligned MINALLOC max			\\ At least this much
+    heap begin dup @ ?dup while			\\ u &ptr ptr
+	rot >r dup @				\\ &ptr ptr size | r: u
+	r@ >= r> swap if			\\ &ptr ptr u
+	    (split)				\\ &ptr ptr
+	    cell+ tuck @ swap !			\\ ptr
+	    0 exit
+	then
+	rot drop swap				\\ u ptr
+    cell+ repeat 2drop -1			\\ ior == failure
+;
+
+\\ Free memory
+: free ( a -- 0 | ior )
+    cell- heap @ over cell+ ! heap !
+;
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Resize existing memory block
+: resize ( a1 u -- a1 ior | a2 0 )
+    aligned MINALLOC max			\\ At least this much
+    allocate ?dup if exit then
+    2dup over cell- @ cmove swap free drop 0
+;
+
+\\ Display state of heap
+: .heap ( -- )
+    base @ hex
+    heap @ begin ?dup while
+	    .\" [\" dup 1 u.r .\" : \" dup @ 1 u.r .\" ]\" cell+ @
+    repeat
+    base !
+;
+
+\\ TBD--an on-demand coalescer
+
+only
+
+
+
+
+
+"

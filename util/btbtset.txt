@@ -1,0 +1,26 @@
+"\\ Btree of BtSet's                                                   vandys
+only extensions definitions
+
+Btree -> subclass: BtBtSet
+
+BtBtSet -> :method ! ( ... self -- )   1 abort\" Bad API use\" method;
+BtBtSet -> :method @ { key self -- btset }
+   key self super-> @ if exit then
+   BtSet -> new dup { btset } key self super-> !   btset method;
+BtBtSet -> :method in? ( key self -- ? )
+   super-> @ dup if nip then method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

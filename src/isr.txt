@@ -1,0 +1,176 @@
+"\\                                                                    vandys
+only os definitions
+0 constant PRIV_KERN
+\\ Trap types
+0 constant T_INVAL   2 constant T_LDT   9 constant T_TSS
+14 constant T_INTR   15 constant T_TRAP   16 constant T_MEMRO
+18 constant T_MEMRW   26 constant T_MEMXR
+256 constant NIDT
+32 constant CPUIDT
+16 constant IDTISA
+struct tss
+   int32 link   int32 esp0   int32 ss0   int32 esp1   int32 ss1
+   int32 esp2   int32 ss2   int32 cr3   int32 eip   int32 eflags
+   int32 eax   int32 ecx   int32 edx   int32 ebx   int32 esp
+   int32 ebp   int32 esi   int32 edi   int32 es   int32 cs
+   int32 ss   int32 ds   int32 fs   int32 gs   int32 ldt
+   int32 iomap
+endstruct
+
+
+
+
+
+
+
+\\                                                                    vandys
+0 constant PRIV_KERN
+struct seg
+   int16 limit0   int16 base0   int8 base1   int8 type
+   int8 limit1   int8 base2
+endstruct
+: >seg ( ptr u -- ptr' )   seg.size * +   ;
+struct gate
+   int16 off0   int16 sel   int8 stkwds   int8 type   int16 off1
+endstruct
+struct linmem
+   int16 len   int32 addr
+endstruct
+
+$20 constant ICU0   $A0 constant ICU1
+8 constant SLAVE_IRQ   2 constant MASTER_SLAVE
+
+struct trapframe
+   int32 esds   int32 edi   int32 esi   int32 ebp   int32 espdummy
+   int32 ebx   int32 edx   int32 ecx   int32 eax
+   int32 traptype   int32 errcode   int32 eip   int32 ecs
+   int32 eflags   int32 esp   int32 ess
+endstruct
+
+
+\\                                                                    vandys
+20 constant HZ
+
+$43 constant PIT_CTRL   $40 constant PIT_CH0
+$34 constant CMD_SQR_WAVE   $00 constant CMD_LATCH
+1193180 constant PIT_TICK
+HZ 2 / PIT_TICK + HZ / constant PIT_LATCH
+
+4 constant NGDT
+: >sel ( u -- u' )   3 lshift   ;
+0 constant GDT_NULL   1 constant GDT_KDATA   2 constant GDT_KTEXT
+3 constant GDT_TSS
+
+create tss   here   tss.size dup allot   erase
+   GDT_KTEXT tss tss>cs !
+   GDT_KDATA   dup tss tss>ss0 !   dup tss tss>ds !
+      dup tss tss>es !   tss tss>ss !
+   sp0 @   dup tss tss>esp0   tss tss>esp !
+
+
+
+
+
+
+
+\\                                                                    vandys
+: setseg ( base size type segptr -- )   dup seg.size erase
+   tuck    swap 3 shiftl 1 or swap seg>type !
+   2dup seg>limit0 !   tuck swap 16 shiftr swap !
+   2dup seg>base0 !   swap 16 shiftr swap !   ;
+create gdt   here   NGDT seg.size * dup allot   erase
+   0 -1 T_MEMRW   gdt GDT_KDATA >seg   segset
+   0 -1 T_MEMXR   gdt GDT_KTEXT >seg   segset
+   tss tss.size T_TSS   gdt GDT_TSS >seg   segset   ;
+create gdtptr   linmem.size allot
+gdt.size NGDT * 1-   gdtptr linmem>len   !
+gdt   gdtptr linmem>addr   !
+\\ TBD: gdtptr lgdt
+\\ TBD: GDT_TSS >sel ltr
+: init_icu ( -- )   $11 ICU0 outb   CPUIDT ICU0 1+ outb
+   4 ICU0 1+ outb   1 ICU0 1+ outb   $FF ICU0 1+ outb
+   2 ICU0 outb
+   $11 ICU1 outb   CPUIDT 8 + ICU1 1+ outb   2 ICU1 1+ outb
+   1 ICU1 1+ outb   $FF ICU1 1+ outb       2 ICU1 outb   ;
+
+: init_pit ( -- )   CMD_SQR_WAVE PIT_CTRL outb
+   PIT_LATCH dup PIT_CH0 outb   8 shiftr PIT_CH0 outb   ;
+
+
+
+\\                                                                    vandys
+struct gate   int16 off0   int16 sel   int8 stkwds   int8 type
+   int16 off1   endstruct
+: set_idt ( fn type gateptr -- )   gate.size over erase
+   swap 3 shiftl 1 or
+   over gate>type c!   2dup gate>off0 w!   swap 16 shiftr
+   over gate>off1 w!   GDT_KTEXT >sel swap gate>sel w!   ;
+create idt   NIDT gate.size * allot
+: init_trap ( -- )   setup_gdt   init_icu   init_pit
+   idt   NIDT 0 do   ['] stray_intr over T_TRAP swap set_idt   loop
+: eoi ( -- )   EOI_FLAG dup ICU0 outb   ICU1 outb   ;
+: trap   sp@ .\" Trap\"   ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: interrupt   sp@ dup trapframe>traptype @   eoi
+
+Approach for interrupt/exception system of ForthOS:
+ All memory data structures are set up with run-time code.  This means
+  that we don't metacompile this handling.  Fine.
+ Setup of machine registers is done via init_* routines.
+ The core init routine is threaded onto the init dictionary to be
+  run later than any interrupt-potential driver.
+
+ Interrupt potential drivers are coded to be polled until they start
+  fielding interrupts.  Clock polls the RTC register, console polls
+  for keystrokes, etcetera.
+ During init of such a driver it registers its ISR number and handler
+  in a table.
+ When machine interrupt handling is compiled in and activated, this table
+  is used to vector out a machine level call (no state saved) to the
+  handler.
+ The routine saves registers as needed to the stack, then does its thing.
+ As appropriate, the interrupt routine should flag that its polled mode
+  aspect should disable itself.
+
+(more on shadow)
+
+
+\\
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

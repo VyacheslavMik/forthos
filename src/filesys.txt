@@ -1,0 +1,276 @@
+"\\                                                                    vandys
+\\ Block filesystem
+only extensions also   fs definitions
+$FFEEEEDD constant FSMAGIC   32 constant #NAMECHARS
+struct meta   int32 magic   int32 type   int32 fence   int32 here   endstruct
+enum FST   enumval dir   enumval file
+   enumval dir_free   enumval file_free   endenum
+: (magic) ( ptr -- )   FSMAGIC swap   meta>magic !   update ;
+: ((>meta))   BASESIZ + ;
+: (>meta) ( ptr -- ptr' )   ((>meta))
+   dup meta>magic @ FSMAGIC - abort\" Corrupt block\" ;
+: (initfree) ( blk type -- )   swap buffer   dup BLKSIZ erase
+   ((>meta))   tuck meta>type !   (magic) ;
+: (inithead) ( #blk blk type -- )   >r   dup buffer   dup BLKSIZ erase
+   ((>meta))   r> over meta>type !   >r tuck + r> tuck meta>fence !
+   swap 1+ over meta>here !   (magic) ;
+: (initbody) ( #blk blk type -- blk )   -rot tuck tuck + swap 1+ do
+      over i swap (initfree)   loop nip ;
+: mkfs ( base #blk -- )   2dup swap FST_dir (inithead)
+   swap FST_dir_free (initbody)   drop ;
+
+
+
+
+
+\\                                                                    vandys
+struct dir   #NAMECHARS bytes name   int32 base   endstruct
+BASESIZ dir.size /   constant #DIRFILES
+: (cwd@) ( -- blk )   cwd @ dup 0= abort\" No CWD\" ;
+: (cwd>) ( -- ptr )   (cwd@) block ;
+: (cwd>meta) ( -- ptr )   (cwd>) (>meta) ;
+: (block>meta) ( blk -- ptr )   block (>meta) ;
+: root   cwd cell+ ;
+: ($dirent) ( str -- dirent | 0 )   (cwd>)
+   #DIRFILES 0 do   dup dir>base @ 0= if   unloop 2drop 0 exit then
+      2dup dir>name $strcmp 0= if   unloop nip exit   then
+   dir.size + loop   2drop 0 ;
+: ($lookup) ( str -- block | 0 )   ($dirent) dup 0= if   exit   then
+   dir>base @ ;
+: cwd! ( blk -- )   dup (block>meta)
+   meta>type @ FST_dir - abort\" Not dir\"
+   root @ 0= if dup root ! then   cwd ! ;
+: found? ( blk -- blk )   dup 0= abort\" Not found\" ;
+: $cd ( s -- )   ($lookup) found?   cwd! ;
+: cd ( <name> )   token $cd ;
+: cd/ ( -- )   root @ dup 0= abort\" No root\"   cwd! ;
+: root!   dup cwd!   root ! ;
+
+
+
+\\                                                                    vandys
+: (slot) ( blkptr -- dirptr )   #DIRFILES 0 do
+      dup dir>base @ 0= if   unloop exit   then
+   dir.size + loop   1 abort\" Dir full\" ;
+: (blkallot) ( nblk metaptr -- )   tuck meta>here @ +
+   over meta>fence @ over < abort\" Out of space\"
+   swap meta>here ! ;
+: ($mkent) ( nblk name -- nblk blk )
+   over 0< abort\" Bad size\"   dup ($dirent) abort\" Exists\"
+   swap tuck (cwd>)   ( nblk name nblk blkptr )   dup (>meta) >r
+   (slot) rot over dir>name swap $strcpy   ( nblk dirent R: metaptr )
+   r@ meta>here @ -rot   swap r> (blkallot)   ( nblk here dirent )
+   over -rot dir>base !   update ;
+: (blankbod) ( blk -- )   buffer   dup BASESIZ blank   [char] \\ swap c! ;
+: (initfile) ( nblk block -- )   tuck   FST_file (inithead)
+   (blankbod)   update ;
+: $creat ( nblk name -- block )   ($mkent)   2dup (initfile)
+   FST_file_free (initbody) ;
+: creat   token $creat ;
+
+
+
+
+
+
+\\                                                                    vandys
+
+: (.type) ( u -- )   dup FST_dir = if .\"  Dir   \" drop exit then
+   dup FST_file = if .\" File   \" drop exit then
+   dup FST_dir_free = if .\" (dfree)\" drop exit then
+   dup FST_file_free = if .\" (free) \" drop exit then   5 u.r ;
+
+: entriesDo ( arg 'fn -- )   #DIRFILES 0 do   2dup
+      (cwd>) i dir.size * +   ( arg 'fn arg 'fn dirent )
+      dup dir>base @ 0= if   3drop 2drop unloop exit   then
+      swap execute   loop 2drop ;
+
+: .entry ( dirent blkno meta -- )   swap >r ( dirent meta R: blkno )
+   dup meta>type @ (.type)   r@ 6 u.r   space
+   dup meta>here @ r@ - 4 u.r   .\" /\"
+   meta>fence @ r> - 4 u.r   space   dir>name .id   cr ;
+: (.ls) ( 0 dirent -- )   nip   dup dir>base @   dup (block>meta)
+   ( dirent blkno meta )
+   dup meta>type @ FST_file_free = if   3drop   exit then   .entry ;
+
+: .head ( -- )   cr .\" Type  Start   Length  Name\" cr ;
+: .ls ( -- )   .head   0   ['] (.ls)   entriesDo ;
+: ls   .ls ;
+
+
+\\                                                                    vandys
+\\ Return \"open\" file
+: ($open) ( type str -- blk )   ($lookup) found? ( type blk )
+   dup (block>meta) meta>type @ rot - abort\" Wrong type of entry\" ;
+: $open ( str -- blk )   FST_file swap ($open) ;
+: open ( -- blk )   token $open ;
+: open# ( -- blklow blkhigh )   open   dup (block>meta) meta>here @ 1- ;
+
+\\ Load source from file
+: load   open# thru ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+\\ NOTE: loading continues here from boostrap build of filesystem
+only extensions also   fs definitions
+
+\\ Create directory
+: (initdir) ( nblk block -- )   FST_dir (inithead) ;
+: $mkdir ( nblk name -- )   ($mkent)   2dup (initdir)
+   FST_dir_free (initbody)    drop ;
+: mkdir ( -- )   token $mkdir ;
+
+: (file>meta) ( blkptr -- meta )   (>meta)
+   dup meta>type @ FST_file - abort\" Not a file\" ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: (initfilemeta) ( blkptr -- )   ((>meta))   dup BLKRESID erase
+   FST_file over meta>type !   (magic) ;
+: (initfilebod) ( blk -- )   dup (blankbod)   block (initfilemeta) ;
+: (tagdelta) ( oldhere newhere -- )   2dup = if   2drop exit   then
+   2dup < if   swap do   i (initfilebod)   loop
+   else   do   i FST_file_free (initfree)   loop   then ;
+: size! ( nblk block -- )   over 1 < abort\" Bad size\"
+   tuck +  >r   block (file>meta)
+   dup meta>fence @ dup 0= abort\" Not head of file\"
+   r@ < abort\" Out of space\" ( meta -- R: newhere )
+   dup meta>here @ r@ rot   ( oldhere newhere meta R: newhere )
+   r> swap meta>here !   update
+   (tagdelta) ;
+: copy ( from to -- )   swap block swap block   BASESIZ move update ;
+: (copy-1st) ( dest high low -- dest+1 high low+1 )
+   dup 3 pick fs.copy   1+ rot 1+ -rot ;
+: copy-blocks ( low high dest -- )   >r 2dup swap - 1+   r@ size!
+   1+ swap r> -rot   (copy-1st)
+   do   i over copy   dup block (initfilemeta)
+   1+ loop   drop sync ;
+
+
+
+
+\\ Insertion of a block into a file                                   vandys
+
+: (file?) ( blk -- <bool> )   (block>meta) meta>type @
+   dup FST_file =   swap FST_file_free =   or ;
+
+: file>head ( blk -- blkhead )   dup (file?) not abort\" Not file\"
+   begin   dup (block>meta)
+      dup meta>type @ FST_file <>   swap meta>fence @ 0=   or
+   while   1-   repeat ;
+
+: file>tail ( blk -- blktail )   file>head (block>meta) meta>here @ 1- ;
+
+: (grow1) ( blk -- )   dup (block>meta) meta>here @   over - 1+
+   swap size! ;
+
+
+
+
+
+
+
+
+
+
+
+\\ Insertion of a block into a file                                   vandys
+
+\\ Move blocks up by one in file; block at top already allocated
+: (moveup) ( blkpoint blkhead -- )   (block>meta) meta>here @ 2 -
+   begin   2dup <=   while   dup dup 1+ fs.copy   1-   repeat   2drop ;
+
+\\ Insert block in file, moving named block forward.  It is legal for
+\\  this to be the first block beyond the end of the file; this simply
+\\  grows the file one block.
+: insblock ( blk -- )   dup dup file>head   dup (grow1)   (moveup)
+   (blankbod) update ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Deletion of a block from a file                                    vandys
+
+: (movedown) ( blkpoint blkhead -- )   (block>meta) meta>here @ 2 -
+   begin   2dup <= while   over dup 1+ swap fs.copy   swap 1+ swap
+   repeat   2drop ;
+: (shrink1) ( blkhead -- )   dup (block>meta) meta>here @   over - 1-
+   swap size! ;
+: delblock ( blk -- )   dup file>head   tuck (movedown)
+   (shrink1) ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Deletion and rename of a file                                      vandys
+
+\\ TBD: free space allocator should do a first-fit scan
+\\ But for now, just mask the file's existence for \"fs.ls\" purposes
+: (type!) ( new old str -- )   ($open) ( blk )
+   (block>meta) meta>type !   update ;
+: $rm ( str -- )   FST_file_free FST_file rot (type!) ;
+: rm ( -- )   token $rm ;
+: $unrm ( str -- )   FST_file FST_file_free rot (type!) ;
+: unrm ( -- )   token $unrm ;
+: (.lsrm) ( 0 dirent -- )   nip   dup dir>base @   dup (block>meta)
+   ( dirent blkno meta) dup meta>type @ FST_file_free - if
+      3drop exit then   .entry ;
+: lsrm ( -- )   .head   0   ['] (.lsrm)   entriesDo ;
+
+\\ Rename
+: rename ( -- )   token ($dirent) found?   dir>name ( 'dirname )
+   token $strcpy   update ;
+
+
+
+
+
+
+
+"

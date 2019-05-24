@@ -1,0 +1,601 @@
+"\\                                                                    vandys
+\\ asm386.fth
+\\ Andrew McKewan
+\\ mckewan@netcom.com
+\\ Port to ForthOS by Andy Valencia, 1/2002
+
+\\ 80386 \"subset\" assembler.
+\\ Greatly inspired by:
+\\    1. 32-BIT MINI ASSEMBLER BASED ON riFORTH by Richard Astle
+\\    2. F83 8086 Assembler by Mike Perry
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ This assembler will run under Win32Forth.  It was written to support a
+\\ metacompiler so it does not implement the full range of opcodes and
+\\ operands.  In particular, it does not support direct memory access
+\\ (i.e.  mov [memory],eax ).  This is because the Forth system, like
+\\ Win32Forth, uses only relative addresses (index or base+index).
+\\ The syntax is postfix and is similar to F83.  Here are some examples:
+\\
+\\       eax ebx mov             \\ move ebx,eax
+\\       3 # eax mov             \\ mov eax,3
+\\       100 [edi] eax mov       \\ mov eax,100[edi]
+\\       4 [ebx] [ecx] eax mov   \\ mov eax,4[ebx][ecx]
+\\       16: eax ebx mov         \\ mov bx,ax
+only
+vocabulary assembler   assembler definitions   also forth
+hex
+
+
+
+
+
+
+
+
+
+\\ ---------------------------------------------------------------------
+\\ Defer memory-access words for the metacompiler
+
+\\ DEFER here     forth ' here  assembler IS here
+\\ DEFER ,        forth ' ,     assembler IS ,
+\\ DEFER c,       forth ' c,    assembler IS c,
+\\ DEFER TC@      forth ' c@    assembler IS TC@
+\\ DEFER TC!      forth ' c!    assembler IS TC!
+: TC@ c@ ;	( TBD: will this work for non-Meta? )
+: TC! c! ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ ---------------------------------------------------------------------
+\\ Register Fields:  8000 <flags> <sib>
+
+\\ Flag bits:    0 = size field   1 = DWORD, 0 = byte
+\\               1 = index field  1 = INDEXED MODE
+\\               2 = sib flag     1 = SIB byte required
+
+: REG     ( mask off register field )   7 and ;
+: REG?    ( reg -- f )     FFFF0200 and 80000000 = ;
+: R32?    ( reg -- f )     FFFF0300 and 80000100 = ;
+: INDEX?  ( reg -- f )     FFFF0200 and 80000200 = ;
+: SIZE?   ( reg -- 0/1 )   8 rshift 1 and ;
+: SIB?    ( reg -- f )     400 and ;
+
+: INDEX  ( n -- )  \\ create an index register
+    create ,  does> @
+    over INDEX?
+    if    REG 3 lshift         ( move reg to index field in sib )
+          400 or                ( set sib flag )
+          swap FFFFFFC7 and or  ( put into sib byte of previous register )
+    then ;
+
+
+
+
+\\                                                                    vandys
+80000100 constant eax       80000000 constant al
+80000101 constant ecx       80000001 constant cl
+80000102 constant edx       80000002 constant dl
+80000103 constant ebx       80000003 constant bl
+80000104 constant esp       80000004 constant ah
+80000105 constant ebp       80000005 constant ch
+80000106 constant esi       80000006 constant dh
+80000107 constant edi       80000007 constant bh
+
+80000300 INDEX [eax]        80020000 constant cr0
+80000301 INDEX [ecx]        80020002 constant cr2
+80000302 INDEX [edx]        80020003 constant cr3
+80000303 INDEX [ebx]        80020010 constant dr0
+80000724 INDEX [esp]        80020016 constant dr6
+80000305 INDEX [ebp]        80020017 constant dr7
+80000306 INDEX [esi]
+80000307 INDEX [edi]
+
+80010000 constant #   ( just different from any register )
+80010000 constant ##  (  ...name for our compilation purposes )
+
+
+
+
+\\                                                                    vandys
+\\ Scaled index mode must have a base register, i.e.
+\\       0 [edi] [eax] *4 ecx mov
+: *2  40 or ;
+: *4  80 or ;
+: *8  C0 or ;
+
+\\ Generate a 16-bit quantity
+: W, here w! 2 allot ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ ---------------------------------------------------------------------
+\\ Assembler addressing mode bytes
+
+variable SIZE
+: byte  0 SIZE ! ;
+: long  1 SIZE ! ;  long
+: OP,    ( n op -- )    or c, ;
+: SIZE,  ( op reg -- )  SIZE? OP, ;
+: SHORT? ( n -- f )    -80 80 within ;
+: DISP?  ( n reg -- n reg f )   2dup REG 5 = ( [ebp] ) or ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: RR,   ( reg reg/op -- )  3 lshift or C0 OP, ;
+
+: MEM,  ( operand [reg] reg -- )
+    3 lshift >r  ( move to reg/opcode field )
+    dup SIB?
+    if    DISP?
+          if  over SHORT?
+              if      r> 44 OP, c, c,
+              else    r> 84 OP, c, ,
+              then
+          else        r> 4 OP, c, drop   ( no displacement )
+          then
+    else  DISP?
+          if  over SHORT?
+              if    r> or 40 OP, c,
+              else  r> or 80 OP, ,
+              then
+          else      r> OP, drop  ( no displacement )
+          then
+    then ;
+
+
+
+
+\\                                                                    vandys
+: R/M,  ( operand [reg] reg | reg reg -- )
+    over REG? if  RR,  else  MEM,  then ;
+
+: WR/SM,  ( r/m reg op -- )  2 pick REG?
+    if  2 pick SIZE, RR,  else  SIZE @ OP,  MEM,  then  long  ;
+
+: CTRL? ( u -- u <bool> )   dup cr0 dr7 within   ;
+: CR? ( u -- u <bool> )   dup cr0 cr3 within  ;
+
+: MOVTOCR ( r/m creg -- )   CR? if $22 else $23 then c, R/M,   ;
+: MOVFROMCR ( creg r/m -- )   rot CR? if $20 else $21 then c, R/M,   ;
+
+: movcr   ( r/m creg | creg r/m -- )   $0F c,
+   CTRL? if MOVTOCR else MOVFROMCR then   ;
+
+
+
+
+
+
+
+
+
+
+\\ -------------------------------------------------------------------vandys
+\\ Opcode Defining Words
+
+: CPU  ( op -- )  create ,  does> @ c, ;
+
+66 CPU 16:      \\ 16-bit opcode prefix (cannot use with immediate ops)
+C3 CPU ret
+F2 CPU rep   F2 CPU repnz   F3 CPU repz
+FC CPU cld   FD CPU std     99 CPU cdq
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Like \"count\", but cells
+: ccount ( a -- a' n ) dup cell+ swap @ ;
+: SHORT  ( op opex regop -- )
+    create , , ,
+    does>  ( reg | offset [reg] -- )  over R32?
+    if  @ OP,  else  cell+ ccount swap @ WR/SM,  then ;
+
+FF 6 50 SHORT push   8F 0 58 SHORT pop
+FE 0 40 SHORT inc    FE 1 48 SHORT dec
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: UNARY  ( opex -- )
+    create ,  does>  ( reg | offset [reg] )  @ F6 WR/SM, ;
+
+2 UNARY inv  ( inv = Intel's not )
+3 UNARY neg   4 UNARY mul
+5 UNARY imul  6 UNARY div   7 UNARY idiv
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ The following forms are accepted for binary operands.
+\\ Note that immediate to memory is not supported.
+\\       reg reg <op>
+\\       n # reg <op>
+\\       ofs [reg] reg <op>
+\\       reg ofs [reg] <op>
+
+: BINARY  ( op -- )
+    create ,
+    does> @ 2 pick ## =
+    if  over SIZE?
+        if    81 c,  RR,  drop ,
+        else  80 c,  RR,  drop c,
+        then
+    else  3 lshift
+          over INDEX? if  >r rot r>  else  2 or  then
+          over SIZE, R/M,
+    then ;
+
+
+
+
+
+
+\\                                                                    vandys
+: mov   ( operands... -- )
+    over ## =
+    if    dup SIZE? if  B8 OP, drop ,  else  B0 OP, drop c,  then
+    else  dup INDEX? if  rot 88  else  8A  then  over SIZE, R/M,
+    then ;
+
+: lea   ( reg/mem reg -- )   8D c,  MEM, ;
+
+: xchg  ( mr1 reg -- )
+    over REG? over eax = and
+    if    drop REG 90 OP,
+    else  86 over SIZE,  R/M,  then ;
+
+( TEST ... )
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+\\ Shift/Rotate syntax:
+\\       eax shl         0 [ecx] [edi] shl
+\\       eax 4 shl       0 [ecx] [edi] 4 shl
+\\       eax cl shl      0 [ecx] [edi] cl shl
+
+: SHIFT  ( op -- )
+    create ,
+    does> @ over cl =
+    if    nip D2 WR/SM,
+    else  over 0< ( reg/index)
+        if    D0 WR/SM,
+        else  over 1 =
+            if    nip D0 WR/SM,
+            else  swap >r C0 WR/SM, r> c,
+            then
+        then
+    then ;
+
+0 SHIFT rol   1 SHIFT ror   2 SHIFT rcl   3 SHIFT rcr
+4 SHIFT shl   5 SHIFT shr   7 SHIFT sar
+
+
+
+
+\\                                                                    vandys
+\\ String instructions. Precede with \"byte\" for byte version
+: strx  ( op -- )
+    create ,  does> @ SIZE @ OP,  long ;
+
+A4 strx movs   A6 strx cmps
+AA strx stos   AC strx lods   AE strx scas
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ ---------------------------------------------------------------------
+\\ Relative jumps and calls
+
+: xoffset  ( dest source -- offset )
+   1+ -  dup SHORT? 0= abort\" branch target out of range\"  ;
+
+: REL8,   ( addr -- )  here xoffset c, ;
+: REL32,  ( addr -- )  here cell+ - , ;
+
+: REL  ( op -- )   create ,  does> @ c,  REL8, ;
+
+70 REL jo    71 REL jno   72 REL jb    73 REL jae
+74 REL je    75 REL jne   76 REL jbe   77 REL ja
+78 REL js    79 REL jns   7A REL jpe   7B REL jnp
+7C REL jl    7D REL jge   7E REL jle   7F REL jg
+E3 REL jecxz
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: jmp  ( addr | r/m -- )
+   dup 0< ( reg/index ) if  FF c,  4 R/M,
+   else  dup here 2 + - SHORT? if  EB c,  REL8,
+   else  E9 c,  REL32,  then then ;
+
+: call  ( addr | r/m -- )
+   dup 0< ( reg/index ) if  FF c,  2 R/M,  else  E8 c,  REL32,  then ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ -------------------------------------------------------------------vandys
+\\ I/O operations
+\\
+\\ byte in               Input one byte from DX to AL
+\\ byte n in#            Input one byte from \"n\" to AL
+\\ in                    Input one byte from DX to EAX
+\\ n in#                 Input one byte from \"n\" to EAX
+\\ (same idea for \"out\", \"ins/outs\")
+: IO  create ,  does>  @ SIZE @ OP,  long  ;
+: IO#  create ,  does>  @ SIZE @ OP, c,  long  ;
+$EC IO in       $EE IO out
+$E4 IO# in#     $E6 IO# out#
+$6C IO ins      $6E IO outs
+
+\\ ---------------------------------------------------------------
+\\ Chip table registers
+: LREG   create , ,   does>   $0F c,   dup @ c,  @ R/M,   ;
+$01 2 LREG lgdt   $01 3 LREG lidt   $00 2 LREG lldt
+$01 6 LREG lmsw   $00 3 LREG ltr
+
+
+
+
+
+
+\\ ---------------------------------------------------------------------
+\\ Local labels
+
+10 constant max-LABELS  ( adjust as required )
+
+: ARRAY  create cells allot  does> swap cells + ;
+
+max-LABELS ARRAY LABEL-VALUE    ( value of label or zero if not resolved )
+max-LABELS ARRAY LABEL-LINK     ( linked list of unresolved references   )
+
+: CLEAR-LABELS   ( initialize label arrays )
+   0 LABEL-VALUE max-LABELS cells erase
+   0 LABEL-LINK  max-LABELS cells erase  ;   CLEAR-LABELS
+
+: CHECK-LABELS  ( make sure all labels have been resolved )
+   max-LABELS 0
+   do  i LABEL-LINK @ if cr .\" Label \" i . .\" not resolved\" then  loop ;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: $:  ( n -- )   ( define a label )
+   dup LABEL-VALUE @ abort\" Duplicate label\"
+   here over LABEL-LINK @ ?dup      ( any unresolved references? )
+   if  ( n address link )
+       begin  dup TC@ >r            ( save offset to next reference )
+              2dup xoffset over TC! ( resolve this reference )
+              r@ 100 - +            ( go to next reference )
+              r> 0=                 ( more references? )
+       until
+       drop over LABEL-LINK off     ( clear unresolved list )
+   then
+   swap LABEL-VALUE !  ;            ( resolve label address )
+
+: $  ( n -- addr )    ( reference a label )
+   dup LABEL-VALUE @  ( already resolved? )
+   if    LABEL-VALUE @
+   else  dup LABEL-LINK @ ?dup 0=   ( first reference? )
+         if   here 1+  then  1+     ( link to previous label )
+         here 1+ rot LABEL-LINK !   ( save current label at head of list )
+   then ;
+
+
+
+
+\\ ---------------------------------------------------------------------
+\\ Structured Conditionals
+
+75 constant 0=   79 constant 0<   73 constant u<   76 constant u>
+7D constant <    7E constant >    71 constant ov   E3 constant ecx0<>
+
+: NOT   1 xor ;  ( reverse logic of conditional )
+
+: IF        c, here 0 c, ;
+: THEN      here over xoffset  swap TC! ;
+: ELSE      EB IF  swap THEN ;
+: BEGIN     here ;
+: UNTIL     c, REL8, ;
+: LOOP      E2 UNTIL ;
+: AGAIN     EB UNTIL ;
+: WHILE     IF swap ;
+: REPEAT    AGAIN THEN ;
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+0 BINARY add   1 BINARY or    2 BINARY adc   3 BINARY sbb
+4 BINARY and   5 BINARY sub   6 BINARY xor   7 BINARY cmp
+
+: ret#   ( n -- )  C2 c, W, ;
+: push#  ( n -- )  68 c, ,  ;
+
+: next   ( -- )
+   lods   eax jmp ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+variable AVOC
+: ASM-INIT   context @ AVOC !  assembler  CLEAR-LABELS  !csp ;
+
+: END-CODE  ?csp  CHECK-LABELS  AVOC @ context !  ( REVEAL ) ;
+: c;   END-CODE align   ;
+
+only assembler
+
+: label   create ( HIDE )  ASM-INIT ;
+: code    label  cp @ cell- cell- cell- cp ! ;
+
+: ;code   ( -- )
+   ?csp  compile (;code)  [compile] [  ASM-INIT
+   ; compile-only immediate
+
+
+only decimal
+
+
+
+
+
+
+
+"

@@ -1,0 +1,26 @@
+"\\ Log of changes                                                     vandys
+Note: break of log from old, non-FS storage of changes
+  1 Don't clear screen on exit from editor 5/2005
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

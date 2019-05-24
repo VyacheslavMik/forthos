@@ -1,0 +1,76 @@
+"\\ Set aggregation                                                    vandys
+
+\\ Much like an \"AgBtree\" creates an aggregate view of a list of B-trees,
+\\  an \"AgSet\" creates an aggregate view of a list of sets.
+only extensions definitions
+
+AgView -> subclass: AgSet
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Set aggregation                                                    vandys
+
+variable doFn scrLocal   variable aglist scrLocal   variable idx scrLocal
+
+: already? ( key -- ? )   idx @ 0 ?do   dup i aglist @ -> @
+      -> in? if   unloop drop true exit   then
+   loop   drop false ; scrLocal
+: (do) ( arg key -- )   dup already? if   2drop exit   then
+   doFn @execute ; scrLocal
+AgSet -> :method do ( arg 'fn self -- )   swap doFn !
+   ag>list dup aglist !   -> size 0 ?do
+      ( arg ) dup   i dup idx !   aglist @ -> @ ( arg arg set )
+      ['] (do) swap -> do   loop drop method;
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Set aggregation; testing                                           vandys
+false [if] \\ Testing
+
+Set -> new constant s1   Set -> new constant s2
+AgSet -> new constant as   s1 as -> agadd   s2 as -> agadd
+1 s1 -> add   2 s1 -> add   3 s1 -> add
+100 s2 -> add   101 s2 -> add   102 s2 -> add
+200 as -> add
+300 s1 set!   300 s2 set!
+
+12321 constant KEY
+: andy ( arg key -- )   . KEY - abort\" Key mismatch\" ;
+: t1   KEY ['] andy as1 agsetDo ;
+
+as -> free
+
+[then] \\ Testing
+
+
+
+
+
+
+
+
+"

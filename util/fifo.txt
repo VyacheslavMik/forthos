@@ -1,0 +1,26 @@
+"\\ FIFO                                                               vandys
+only extensions definitions
+
+List -> subclass: FIFO
+
+FIFO -> :method push ( elem fifo -- )   super-> add method;
+FIFO -> :method pop { self -- elem }   0 self -> @ { elem }
+   elem self -> remove   elem method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

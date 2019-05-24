@@ -1,0 +1,101 @@
+"\\ Aggregate Btree                                                    vandys
+only extensions definitions
+
+AgView -> subclass: AgBtree
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ AgBtree fetch                                                      vandys
+
+AgBtree -> :method @ ( key self -- val T | F )   ag>list { key list }
+   list -> size   0   do   i list -> @ { bt }
+      key bt -> @ if exit then   loop false method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ AgBtree iteration                                                  vandys
+
+AgBtree -> :method do { arg 'fn self -- }
+   0 begin   self -> nextKey   while { key }
+      key self -> @ drop { val }   arg val key 'fn execute
+   repeat method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Aggregate B-trees, testing                                         vandys
+false [if] \\ Testing
+
+Btree -> new constant bt1   Btree -> new constant bt2
+AgBtree -> new constant ab
+
+100 1 bt1 -> !   200 2 bt2 -> !   300 3 bt1 -> !   300 3 bt2 -> !
+
+bt1 ab -> add   bt2 ab -> add
+
+[then] \\ Testing
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

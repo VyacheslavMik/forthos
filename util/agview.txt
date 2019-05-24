@@ -1,0 +1,76 @@
+"\\ AgView--aggregate view of some underlying set of data structures   vandys
+\\ AgView is a generic class for holding a list of data structures, and
+\\  permitting the aggregate to be a polymorphic representation of the
+\\  member elements. XYZZY
+only extensions definitions
+
+Collection -> subclass: AgView ivars: intcell list endivars
+
+AgView -> class -> :method new ( self -- agbt )   super-> new
+   List -> new   over AgView>list ! method;
+: ag>list ( agbt -- list )   AgView>list @ ;
+AgView -> :method free ( self -- )
+   dup ag>list -> free   super-> free method;
+
+AgView -> :method agadd ( elem self -- )   ag>list -> add method;
+AgView -> :method ! ( val key self -- )   ag>list -> last   -> ! method;
+AgView -> :method add ( elem self -- )   ag>list -> last   -> add method;
+
+: (.ag) ( 0 elem -- )   nip   -> . ; scrLocal
+AgView -> :method .elems ( self -- )   0   ['] (.ag)
+   rot ag>list -> do method;
+
+
+
+
+\\ AgView--aggregate view of some underlying set of data structures   vandys
+
+variable (agCount) scrLocal
+: (agSize) ( 0 bt -- )   nip   -> size   (agCount) +! ; scrLocal
+AgView -> :method size ( self -- u )   (agCount) off   ag>list
+   0   ['] (agSize)   rot -> do   (agCount) @ method;
+AgView -> :method in? ( key self -- ? )   ag>list { key list }
+   list -> size 0 ?do   i list @ { elem }   key elem -> in? if
+      unloop   true exit then
+   loop   false method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ AgView key manipulation                                            vandys
+
+variable (agKey) scrLocal
+
+: (agnextKey) ( key ag -- )   -> nextKey if   (agKey) @ ?dup if min then
+   (agKey) !   then ; scrLocal
+AgView -> :method nextKey ( key ag -- key' T | F )   ag>list
+   (agKey) off   ['] (agnextKey)   swap -> do
+   (agKey) @ ?dup 0<> method;
+
+: (agtopKey) ( 0 bt -- )   nip
+   -> topKey (agKey) @ max   (agKey) ! ; scrLocal
+AgView -> :method topKey ( ag -- key )   ag>list
+   (agKey) off   0   ['] (agtopKey)   rot -> do
+   (agKey) @ method;
+
+
+
+
+
+
+
+
+
+
+"

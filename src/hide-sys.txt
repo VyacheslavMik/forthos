@@ -1,0 +1,51 @@
+"\\ Post-hoc cleanup/hiding of words in \"forth\"                        vandys
+only extensions also forth
+
+hide: (blktib) (buffer?) (bk) (lnk) (sv) (bufmod?) (noblock) (bufclean)
+hide: (bufmod) PREV (BUFS) #BUFS (bod>buf) (>bufbod) (>bufflag) (>bufblock)
+hide: (>buflink) (prehook) ($preproc) (unhook) ($streq) _strrpos _strpos
+hide: (exec:) (forget-entries) (rollback) (of) (.voc) (unresolved) (;code)
+hide: ?pairs init-bootinfo (mem_upper) (initialize) (low-above) (low-scan)
+hide: (low-fn) (low-seen) (low-n) (each-init) (warm?) (see) (>name) _type
+hide: (listent) (c;ode) (;) (compf) (then) (if)
+hide: (resloop) (compile) $interpret #markb #immediate
+hide: #compile-only null$ kTAP ^n ^p (<hist) (clrbl) (>histp) (>hist)
+hide: (histib>) (#histib) (hist>str) (hist>pos) (hist>put) (hist@) (histmask)
+hide: (#tib) #HISTSH HISTMASK #HIST (1char>) ^u ^k ^h ^f ^e ^d ^b ^a
+hide: (cur>eot) (dist>0) (n^f) (dist^b) (char<r) (char>r) (keyc) (^f) (^b)
+hide: (^p)
+
+
+
+
+
+
+
+
+
+\\ Post-hoc cleanup/hiding of words in \"forth\"                        vandys
+
+hide: (bs) (echoc) (rchar) (lchar) (notbol?) (<dist) (>dist) (#tib>c)
+hide: (#tib>dist) (#tib@) (vocab?) (ent=) (cnt) (unbase) (str>ext) (base>str)
+hide: (ext>str) (str>base) (str>len) (dot?) (parse) (.\") (c\") (key?) +ch
+hide: 10*+ -digit #TIBLINE (abort\") do$ #VOCS doVOC BASEM doUSER doVAR
+hide: (+loop) (loop) (?do) (do) doCONST doLIT doLIST
+hide: (bk>size) (>bk) (bkallot) (bkheapStart) (bkheap) (bks) (BKMAXSZ)
+hide: (BKMINSZ) (#BKS) (aout_size) (write_image) ('endScr)
+hide: init{ 'end} end} {! localName! nfa! curArg resetLocals {@
+hide: 'local->eax off_(local) >localNFA maxName localNFAs ($cstreq?)
+hide: curDef ('endDef) ({) 'semiHook proc\"--\" argEntry narg init{--
+hide: end}-- \"badRet TERMINIT TERMVAL findLocal localVocPtr (localVoc)
+
+
+
+
+
+
+
+
+
+
+
+
+"

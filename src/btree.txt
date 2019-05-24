@@ -1,0 +1,126 @@
+"\\ Manage a mapping of \"cell\" values to another value.
+\\ Uses a binary tree.
+\\ A binary tree has a value, and then \"<=\" and \">\" nodes.  If
+\\  the \"<=\" node is 0, it is a leaf; the latter node value is
+\\  the corresponding leaf value.
+\\ The tree is not self-balancing; well distributed keys should
+\\  be used.
+only extensions definitions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+: (btleaf?) ( a -- bool ) cell+ @ 0= ;                               vandys
+
+\\ Look up a key in the tree, return its value plus true, else false
+: bt_find ( a tree -- u true | false )
+ @ ?dup 0= if 2drop false exit then
+ begin
+  dup (btleaf?) if
+   dup @ rot = if cell+ cell+ @ true else 2drop false then exit then
+  2dup @ <= if cell+ else cell+ cell+ then @
+  dup 0= if 2drop false exit then
+ again ;
+
+\\ Create a leaf from the a->u parameters
+: (btleaf) ( u a -- ptr ) here -rot , 0 , , ;
+
+\\ Tell if the tree pointer points to a non-empty tree
+: (btempty?) ( tree -- bool ) @ 0= ;
+
+\\ Insert the first leaf
+: (1stleaf) ( u a tree -- ) -rot (btleaf) swap ! ;
+
+\\ Pick <= or > field based on integer value
+: (btselect) ( node d -- a )
+ 0 <= if cell+ else cell+ cell+ then ;
+
+\\ Descend a level in the node hierarchy
+: (btdescend) ( u a node -- u a node' )
+ 2dup @ - (btselect) @ ;
+
+\\ Clone a B-tree node
+: (btclone) ( node -- node' node )
+ here 3 cells allot 2dup 3 cells move swap ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Insert the a->u mapping onto the provided leaf
+: (btspawn) ( u a node -- )
+ 2dup @ - ?dup 0= if nip cell+ cell+ ! exit then
+ >r >r (btleaf) r> ( node1 node R: d )
+ (btclone) tuck r> ( node1 node node2 node d )
+ 0 <= if cell+ cell+ ! cell+ !
+ else cell+ ! cell+ cell+ ! then ;
+
+\\ Find value \"u\" under key \"a\" in the tree starting at \"tree\"
+: bt_insert ( u a tree -- )
+ dup (btempty?) if (1stleaf) exit then
+ @ begin dup (btleaf?) not while
+  (btdescend)
+ repeat (btspawn) ;
+
+
+
+
+
+
+
+
+
+
+
+\\ Internal version of tree display, with indentation count
+: (.bt) ( node u -- )
+ dup spaces
+ over (btleaf?) if
+  \\ Display a leaf
+  drop dup @ . .\"  ->\" cell+ cell+ @ . cr
+ else \\ Display the label for this node, then recurse for the two sides
+  1+ over @ . .\" :\" cr key drop
+  over cell+ @ over recurse
+  swap cell+ cell+ @ swap recurse
+ then ;
+
+\\ Display the binary tree
+: .bt ( tree -- ) cr dup (btempty?) if exit then @ 0 (.bt) ;
+
+only
+
+
+
+
+
+
+
+
+
+"

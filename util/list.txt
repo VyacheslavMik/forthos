@@ -1,0 +1,126 @@
+"\\ Object lists--adding and searching                                 vandys
+
+only extensions definitions
+
+Collection -> subclass: List ivars:
+   intcell nelem
+   intcell elems   endivars
+
+List -> :method add { w self -- }   self List>nelem inc
+   self List>elems @   self List>nelem @ cells bkrealloc   self List>elems !
+   w   self List>nelem @ 1- cells   self List>elems @ +   ! method;
+List -> :method indexOf { w self -- n T | F }   self List>elems @
+   self List>nelem @ 0 ?do   @+ w = if   drop i unloop true exit   then
+   loop   drop false method;
+
+
+
+
+
+
+
+
+
+
+
+\\ Object lists--adding, testing, removing, iteration                 vandys
+
+List -> :method remove { w self -- }
+   w self -> indexOf   0= abort\" Not in list\"
+   cells { idx } self List>nelem dec   self List>nelem @ cells   idx -
+   { #move } self List>elems @ idx + { dest }
+   dest cell+ ( src )   dest #move move   method;
+List -> :method in? ( w self -- ? )
+   -> indexOf   ?dup if nip then   method;
+List -> :method size ( self -- u )   List>nelem @   method;
+List -> :method do { arg fn self -- }
+   self List>elems @   self List>nelem @ 0 ?do
+      ( 'elem ) @+ arg swap fn execute   loop drop   method;
+List -> :method reverseDo { arg fn self -- }
+   self List>nelem @ ?dup 0= if exit then ( nelem )
+   self List>elems @   0 rot 1- do
+      arg   over i cells + @   fn execute   -1 +loop   drop method;
+
+
+
+
+
+
+
+
+\\ Object lists--basic cell access                                    vandys
+
+: (range) ( idx list -- )   List>nelem @   >= abort\" Bad index\" ; scrLocal
+List -> :method @ { idx self -- val }   idx   dup self (range)
+   cells   self List>elems @ +   @   method;
+List -> :method ! { val idx self -- }   val   idx   dup self (range)
+   cells   self List>elems @ +   !   method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Object lists--cleanup, display                                     vandys
+
+List -> :method free ( self -- )   dup List>elems @   bkfree
+   super-> free   method;
+
+List -> :method empty! ( self -- )   List>nelem off method;
+
+List -> :method size! ( nelem self -- )
+   2dup   List>nelem @   > abort\" Growing List\"
+   over cells   over List>elems @ swap bkrealloc ( nelem self elems' )
+   over List>elems !   List>nelem ! method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Object lists--creation utilities                                   vandys
+
+: args>list ( args... narg -- list )   List -> new
+   swap 0 do   tuck -> add   loop ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

@@ -1,0 +1,76 @@
+"\\ Aggregate of BtSet's                                               vandys
+only extensions definitions
+
+AgView -> subclass: AgBtSet
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ AgBtSet fetching aggregate result                                  vandys
+
+AgBtSet -> :method @ ( key agbtset -- agset )   ag>list   AgSet -> new
+   { key list agset } list -> size 0 ?do   i list -> @ { btset }
+      key btset -> @ if   agset -> agadd   then   loop
+   agset method;
+
+AgBtSet -> :method in? ( key agbtset -- ? )   ag>list { key list }
+   list -> size 0 ?do   i list -> @ { btset }
+      key btset -> in? if   unloop true exit   then
+   loop   false method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ Aggregate of btlist's... testing                                   vandys
+false [if] \\ Testing
+
+BtSet -> new constant btl1   BtSet -> new constant btl2
+100 1 btl1 -> !   101 1 btl1 -> !   200 2 btl1 -> !   201 2 btl1 -> !
+100 1 btl2 -> !   101 1 btl2 -> !   200 2 btl2 -> !   201 2 btl2 -> !
+ 300 3 btl2 -> !   301 3 btl2 -> !
+
+AgBtSet -> new constant agbt   btl1 agbt -> agadd   btl2 agbt -> agadd
+
+\\ agbt -> free
+
+[then] \\ Testing
+
+
+
+
+
+
+
+
+
+
+
+
+"

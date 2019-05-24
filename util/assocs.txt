@@ -1,0 +1,51 @@
+"\\ Key->value associations                                            vandys
+only extensions definitions
+
+Collection -> subclass: Assocs ivars:
+   intcell keys   intcell vals   endivars
+
+Assocs -> class -> :method new { self -- }
+   List -> new self Assocs>keys !
+   List -> new self Assocs>vals !   method;
+Assocs -> :method indexOf { key self -- idx T | F }
+   key   self Assocs>keys @ -> indexOf   method;
+
+Assocs -> :method ! { val key self -- }
+   self Assocs>keys @   self Assocs>vals @ { keys vals }
+   key keys -> indexOf if   ( idx ) val swap   vals -> !   exit then
+   key keys -> add   val vals -> add   method;
+
+Assocs -> :method @ { key self -- val }
+   key self Assocs>keys @ -> indexOf if
+      ( idx ) Assocs>vals @ -> @   exit then
+   1 abort\" Not present\"   method;
+
+Assocs -> :method size ( self -- u )   Assocs>keys @ -> size   method;
+
+
+\\ Key->value associations, iteration, display                        vandys
+
+Assocs -> :method do { arg fn self -- }
+   self Assocs>keys @   self Assocs>vals @ { keys vals }
+   keys -> size   0 ?do
+      arg   i vals -> @   i keys -> @   fn execute
+   loop   method;
+
+: (.assoc) ( arg val key -- )   1 u.r   .\" ->\"   1 u.r space
+   drop ; scrLocal
+Assocs -> :method . { self -- }   self -> .class   .\" {\"
+   0   ['] (.assoc)   self -> do   .\" }\"   method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

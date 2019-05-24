@@ -1,0 +1,101 @@
+"\\ Power-of-two bucket memory allocator                               vandys
+20 dup dup constant (#BKS)   ( #bks #bks )
+32 dup constant (BKMINSZ)   ( #bks #bks bkmin )
+    swap lshift constant (BKMAXSZ)
+create (bks)   ( #bks ) cells allot
+variable (bkheap)   variable (bkheapStart)
+: (bkallot) ( u -- a )   negate (bkheap) +!   (bkheap) @ ;
+: empty-bks ( -- )   (bks)   (#BKS) cells erase
+   (bkheapStart) @ (bkheap) ! ;
+: (>bk) ( u -- bkptr u' )   >r (bks) (BKMINSZ) begin
+   r@ over >   while   2* swap cell+ swap   repeat   r> drop ;
+: bkalloc ( u -- ptr )   cell+ dup (BKMAXSZ) >= abort\" Too big\"
+   (>bk)   over @ ?dup if ( bk u mem )
+      nip tuck @ ( mem bk next )   swap !   exit then
+   ( bk u )   (bkallot) ( bk mem )   tuck !   cell+ ;
+: bkfree ( ptr -- )   ?dup 0= if exit then
+   dup (bkheap) @ u< abort\" Bad bkfree ptr\"
+   dup cell- @ ( ptr bk )
+   dup @ ( ptr bk oldhead )   rot tuck ! ( bk ptr )   swap ! ;
+
+
+
+
+
+
+\\ Power-of-two bucket based memory allocator                         vandys
+: (bk>size) ( bk -- u )   (bks) -   1 cells /
+   (BKMINSZ) swap lshift cell- ;
+: bkrealloc ( ptr u -- ptr' )   over 0= if   nip bkalloc exit   then
+   over cell- @ (bk>size)   2dup <= if
+      2drop exit   then   ( old newsize oldsize )
+   over bkalloc -rot min   ( old new size )
+   >r 2dup r> move   swap bkfree ;
+: bkzalloc ( u -- ptr )   dup bkalloc   tuck swap erase ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ String utilities for bucket memory                                 vandys
+
+: $bkdup ( str -- str' )   dup c@ 1+ dup bkalloc ( str size str' )
+   dup >r   swap move   r> ;
+: $bkdup+ ( str u -- str' )   over c@ 1+ + bkalloc ( str str' )
+   tuck   over c@ 1+ move ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\ System initialization of bucket allocator                          vandys
+
+also initialize definitions
+: boot-bk ( ? -- n | )   0= if   10000 exit   then
+   (mem_upper) @ 1024 1024 * +   (bkheapStart) !   empty-bks ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"

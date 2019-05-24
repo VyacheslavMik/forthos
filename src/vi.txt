@@ -1,0 +1,651 @@
+"\\ Full screen editor in forth-83. Based upon Henry     21Aug86 rsl   vandys
+\\ Laxen's original. MODIFIED FOR ANY COMPUTER.
+\\ Ported to x86 eForth by Andy Valencia 11/2001
+\\ ----------------------------------------------------------------
+\\ Craig A. Lindley
+\\ Clockwork Software
+\\ 6 Sutherland Place
+\\ Manitou Springs, Co. 80829
+\\ ----------------------------------------------------------------
+\\ Reworked to have a vi-like command set and permit multiple
+\\  concurrent editing sessions.  Andy Valencia 5/2003
+\\ Note that there *are* shadow screens with comments now.
+only extensions   \\ true constant VIDEBUG? \\ Debug variant?
+[ifdef] VIDEBUG?
+vocabulary vi2   also vi2 definitions   Undebug [+debug]
+[else]
+vocabulary vi   also vi definitions
+[then]
+
+\\ To permit reentrancy across tasks, we use memory at \"here\"
+\\ to hold all editor state.  This includes all local state like
+\\ cursor position and insertion state flags, and also the edited
+\\ buffer itself, since the one provided by \"block\" may be
+\\ reallocated when another task uses the block I/O subsystem.
+
+\\ Configuration for ANSI terminal                                    vandys
+7 constant BELL   9 constant TAB   8 constant TABcols
+: beep   BELL emit   ;
+
+\\ Weird f83 stuff to emulate
+: upc ( c -- c )   dup 96 > over 123 < and if 32 - then   ;
+: at ( y x -- ) swap at-xy ;
+
+: edvar   ( idx -- )   create cells ,   does>   @ here +   ;
+ 0 edvar &mode       1 edvar &cur        2 edvar &badr
+ 3 edvar &upd        4 edvar &arg        5 edvar &delta
+ 6 edvar &findchar   7 edvar &cmdc       8 edvar &argvalid?
+ 9 edvar &yank      10 edvar &srch>dir  11 edvar &findDir
+12 edvar &srch>scr  13 edvar &scr
+14 constant #edvars
+create &id 12 allot    &id 12  blank
+
+variable 'insert   variable 'overwrite variable 'command
+SCRSIZ constant cps   BLKROWS constant lps
+BLKCOLS constant c/l
+
+
+
+
+
+\\                                                                    vandys
+cps 1 - constant cps-1    cps 2 * constant cps*2
+lps 1 - constant lps-1
+27 constant ESC
+
+80 constant BUFsize
+84 constant BUFalloc
+: textBuf   pad  BUFalloc + ;
+: numBuf   textBuf BUFalloc + ;
+: searchBuf   numBuf BUFalloc + ;
+: prevsearchBuf   searchBuf BUFalloc + ;
+: blkBuf   prevsearchBuf BUFalloc + ;
+
+: yankBuf   blkBuf BLKSIZ + ;
+\\ Next free location: yankBuf SCRSIZ +
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: >line#   c/l / ;
+: line#>   c/l * ;
+: >bol   ( n -- n )   >line# line#> ;
+: >eol ( n -- n )   >bol c/l + 1- ;
+: curpos ( -- n )   &cur @ ;
+: +cur ( n -- )   &cur +!   curpos 0 max   cps-1 min   &cur ! ;
+
+: mvcur ( -- )   curpos c/l /mod at ;
+
+: >bufadr ( n -- a )   &badr @ + ;
+: bufpos ( -- a )   curpos >bufadr ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: upd ( -- )   &upd on   &delta inc   ;
+: ?prt ( c -- bool )   dup bl < swap 126 > or not   ;
+: mark   &upd @ not if   exit   then
+  &id 0 >bufadr c/l + 11 - 11 cmove
+  blkBuf &scr @ block SCRSIZ 2* cmove update
+  &upd off   &scr @ scr ! ;
+
+: #tobol ( -- n )   curpos c/l mod ;
+: #toeol ( -- n )   #tobol   c/l swap -   1- ;
+
+: bufmv ( asrc adest n -- )   rot >bufadr rot >bufadr rot
+  move   upd ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: position ( -- )   0 lps-1 at c/l blot   ;
+: empty? ( n -- bool )   line#> >bufadr c/l   -trailing nip 0=   ;
+
+: clrLine ( n -- )   >bufadr c/l blank   upd ;
+: exp ( -- )   curpos >bol dup dup c/l +   cps over - bufmv   clrLine ;
+: shrink ( -- )   curpos >bol   dup c/l + dup >r
+   swap   cps r> - bufmv   lps-1 line#> clrLine ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: insertline ( -- ? )   lps-1 empty? not if   beep false exit   then
+   exp true   ;
+: deleteline   shrink   ;
+: cempty?   ( n -- ? )   >eol >bufadr c@   bl =   ;
+: inschar ( c -- )   curpos cempty? not if   drop beep exit   then
+  curpos dup 1+ #toeol bufmv   bufpos c!   upd ;
+: delchar ( -- )   curpos dup 1+ swap #toeol bufmv
+  bl   curpos >eol >bufadr   c!   upd ;
+: deltoeol   bufpos #toeol 1+ blank   upd ;
+
+: rarrow   1 +cur   ;
+: larrow   -1 +cur   ;
+: uarrow   c/l negate +cur   ;
+: darrow   c/l +cur   ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: heading   page
+  26 0 at .\" *** Forth Full Screen Editor ***\"   ;
+
+: inserting?   &mode @ 'insert @ =   ;
+: breakline   bufpos dup #toeol 1+ + #toeol 1+ move   deltoeol   ;
+
+: curline ( -- u )   curpos >line# ;
+: onlast?   curline lps-1 = ;
+: ret   onlast? if   beep exit   then
+  inserting? if   #toeol 1+ dup +cur insertline swap negate +cur
+    if breakline then   then
+  curpos >line# 1+   line#> &cur !   ;
+
+: quited   24 0 at-xy cr
+  .\" Edit session complete\"   sp0 @ sp!   .ok quit ;
+
+: exitupd   mark save-buffers   quited   ;
+
+: (>prev) ( a -- )   dup c@ 1+   prevsearchBuf swap move ;
+: (<prev) ( a -- )   prevsearchBuf dup c@ 1+   >r swap r>   move ;
+: (padIn) ( a -- )   dup 1+ BUFsize   2dup blank   expect
+   span @ ?dup if   over c!   (>prev)   else   (<prev)   then ;
+
+
+\\                                                                    vandys
+: scanfail   r> drop   2drop drop 0   ;
+: scan+=   2dup = if   scanfail   then
+   0 -rot do   over i c@ = if   leave   then   1+ loop   nip ;
+: scan+<>   2dup = if   scanfail   then
+  0 -rot do    over i c@ <> if   leave   then   1+ loop   nip ;
+: scan-=   2dup = if    scanfail   then
+  0 -rot do   over i c@ = if   leave   then   1- -1 +loop  nip ;
+: scan-<>   2dup = if   scanfail   then
+  0 -rot do   over i c@ <> if   leave   then   1- -1 +loop   nip ;
+
+: mvlwrd ( -- n )   bl 0 >bufadr bufpos scan-= >r
+  bl 0 >bufadr bufpos r@ + scan-<>   r> +   ;
+: mvrwrd ( -- n )   bl cps-1 >bufadr bufpos scan+= >r
+  bl cps-1 >bufadr bufpos r@ + scan+<>   r> +   ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: rword   mvrwrd +cur   ;
+: lword   mvlwrd +cur   ;
+
+: delchars ( n -- )   0 do  delchar   loop ;
+
+: dword   mvrwrd bufpos #toeol 1+ -trailing
+  nip min delchars   ;
+
+: redraw   &badr @   putpage   ;
+
+: clrscn   0 &cur !   bufpos cps blank   upd ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: getid   &id 12 -trailing nip if   exit   then
+  cr .\" Enter id: \"
+  12 0 do 46 emit loop
+  12 0 do  8 emit loop
+  &id 12 expect   ;
+
+: init2   'command @ &mode !   0 &cur !  redraw   ;
+: init   &scr @ dup scr ! block  blkBuf SCRSIZ 2*  cmove
+  blkBuf &badr !   init2   ;
+
+: rstedit   discard   &upd off   init   ;
+
+: lstblk   mark   &scr @ dup 0> if  1- &scr ! init   then   ;
+: nxtblk   mark   &scr inc   init   ;
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+\\ A ForthOS block is 4k, and a screen is just shy of 2k.  So
+\\ we use the first half of the block for the source, and the
+\\ second as a shadow.
+: inShadow? ( -- bool )   &badr @ blkBuf <>   ;
+: edtshdw   curpos   inShadow? if   blkBuf &badr !
+   else   SCRSIZ &badr +!   then   init2 +cur   ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+[ifdef] VIDEBUG? : kTAP ( c -- )   (locals).kTAP ; [then]
+: (padTAP)   dup ESC <> if   kTAP exit   then   1 throw ;
+
+: (dopadIn) ( a -- a )   dup (padIn)   ;
+: padIn ( a -- <bool> )   'tap @ swap   ['] kTAP 'tap !
+   ['] (dopadIn) catch 0=   nip swap 'tap !   ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: 1st   0 &cur !   ;
+: middle   lps-1 2/ line#> &cur !   ;
+: lst   lps-1 line#> &cur !   ;
+: bol? ( -- ? )   #tobol 0= ;
+
+: hldln   curpos >bol   >bufadr textBuf c/l   cmove   ;
+
+: insln   insertline not if   exit    then
+  textBuf   curpos >bol   c/l cmove ;
+
+: begline   curpos >bol   &cur !   ;
+: endline   #toeol +cur   bl bufpos dup c/l - swap scan-<>
+  1+ +cur   ;
+: startLine   begline   bufpos #toeol 1+ 0 do   dup c@ bl <> if
+   i +cur unloop drop exit   then   1+ loop drop ;
+
+: rett   onlast? not if   #toeol 1+ +cur   startLine   then ;
+
+: firstInsert   startLine   'insert @ &mode !   ;
+
+
+
+
+
+\\                                                                    vandys
+: status   page
+  .\" Row:\" curpos c/l / .   .\"  Column: \" #tobol . cr
+  .\" Screen #:\" &scr ?  &upd @ if .\" (Modified)\" else .\" (Virgin)\" then cr
+  .\" Line hold buffer contents:\" cr
+    textBuf c/l -trailing type cr
+  cr .\" Hit a key to continue: \" key drop   redraw   ;
+
+: joinLine
+   endline curpos dup #toeol 1+ >r   ret startLine curpos swap
+   r> #toeol 1+ min dup >r bufmv   r> delchars
+   curpos begline curpos swap - delchars   curpos >line# empty? if
+     deleteline   then
+   &cur !   ;
+
+: replChar ( -- )   key bufpos c!  upd ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: backDchar   -1 +cur delchar   ;
+: command   dup 13 = if   drop ret exit   then
+  dup 8 = if   drop backDchar exit   then
+  drop 'command @ &mode !   bol? not if   larrow   then ;
+: insertoff   key dup ?prt
+  if   bufpos c! upd   1 +cur
+  else   command   then   ;   ' insertoff 'overwrite !
+: inserton   key dup ?prt
+  if   inschar   1 +cur
+  else   command   then   ;   ' inserton 'insert !
+
+: dispatch ( c a -- )   swap >r begin   @+ ?dup   while
+  r@ = if   r> drop   @execute exit   then
+  cell+   repeat   r> 2drop beep   ;
+
+
+
+
+
+
+
+
+
+
+\\ Delete, yank, with yank buffer                                     vandys
+: saveLines ( -- u )   &argvalid? @ if   &arg @   lps curpos >line# -
+      ( arg #lines ) min   else   1   then
+   curpos >bol >bufadr   over c/l * dup &yank !   yankBuf swap move ;
+
+: cmd_deleteline ( -- )   saveLines 0 do   deleteline   loop ;
+: deltoeos ( -- )   bufpos   cps curpos -   blank upd ;
+create d_cmd   char $ , ' deltoeol ,   char d , ' cmd_deleteline ,
+   char G , ' deltoeos ,   0 , 0 ,
+: cmd_Yank ( -- )   saveLines drop ;
+: #insertlines ( -- u )   lps-1 begin
+      dup empty?   over curline >=   and while   1-   repeat
+   lps-1 swap - ;
+: cmd_Put ( -- )   &yank @ c/l / ?dup 0= if   beep exit   then
+   dup #insertlines > if   drop beep exit   then   begline
+   0 do   insertline 0= abort\" insertline failed\"   loop
+   yankBuf bufpos &yank @ move   upd ;
+: cmd_put ( -- )   curpos rett   cmd_Put   &cur ! ;
+
+
+
+
+
+
+
+\\                                                                    vandys
+: searchingCur?   &srch>scr @ &scr @ =   ;
+: forward?   &srch>dir @ 0>   ;
+: curBufArg ( -- ptr u )   blkBuf bufpos over -   forward? if
+   cps*2 over - -rot   + swap   1- swap 1+ swap   then ;
+: bufArg ( -- ptr u )   searchingCur? if   curBufArg
+   else   &srch>scr @ block    cps*2   then ;
+: scan ( a ptr u -- pos | -1 )   &srch>dir @ 0> if strpos else
+   strrpos then ;
+: adjustResult ( u -- u )   searchingCur? forward? and if
+   bufpos 1+ blkBuf - +   then ;
+: found? ( -- pos T | F )  searchBuf bufArg scan   dup -1 = if
+   drop false   else   adjustResult true   then ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: searchInit ( dir -- )   &srch>dir !   &scr @ &srch>scr !   ;
+: scrJump ( n -- )   &scr @ over = if   drop   else
+   mark   &scr ! init   then ;
+: jumpTo ( pos scr -- )   scrJump   dup cps mod &cur !   cps >=
+   inShadow? <> if   edtshdw   then   ;
+: searchJump ( pos -- )    &srch>scr @    jumpTo ;
+: showScreen ( -- )   page &srch>scr ?   ;
+: search ( dir -- )   searchInit   begin
+      found? if   searchJump exit   then
+      &srch>dir @ &srch>scr +!   showScreen
+   key? until   key drop ;
+: (search) ( dir c -- )   position emit   searchBuf padIn
+    not if drop exit then   search   redraw ;
+: searchAgain ( -- )   &srch>dir @ ?dup 0= if   beep exit   then
+   search   redraw ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: slash   1   [char] / (search)   ;
+: backslash   -1   [char] ? (search)   ;
+
+create marks 26 2* cells allot
+create marktick 2 cells allot
+: setMark ( a -- )   &scr @ over !
+  curpos inShadow? if   cps +   then   swap cell+ !   ;
+: >mark ( c -- a | 0 )   dup [char] a >= over [char] z <= and if
+  [char] a - 2* cells marks +   exit   then
+  [char] ' = if   marktick exit   then   0 beep ;
+: tick   key >mark ?dup if   dup @ 0= if   drop exit   then
+   2@   marktick setMark   jumpTo   then ;
+: markPos   key >mark ?dup if   setMark   then   ;
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+
+: doDig ( -- )
+   &argvalid? @ 0=    &cmdc @ [char] 0 =   and if
+      begline exit   then
+   &arg @   10 *   &cmdc @ [char] 0 - +   &arg !
+   &argvalid? on ;
+: isdigit? ( c -- ? )   [char] 0 [char] 9 1+ within ;
+
+: doGo ( -- )   mark
+   &argvalid? @ if   &scr @ fs.file>head &scr !
+      &arg @ begin   dup BLKROWS >=   while   &scr inc   BLKROWS - repeat
+      init   0 do darrow loop   exit then
+   &scr @ fs.file>tail &scr !   init ;
+
+: deleteBlock ( -- )   &scr @ fs.delblock   init ;
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: fixTab ( -- )   &cur @   cps 0 do   i >bufadr c@ TAB = if
+   i &cur ! delchar   i TABcols mod TABcols swap - 0 do
+      bl inschar   loop   then   loop   &cur ! ;
+: (delFromTop) ( pos blkptr -- )   2dup +   over c/l +
+   ( pos blkptr src dest ) cps 4 pick -   move ( pos blkptr )
+   swap cps swap - c/l +   tuck +   swap cps swap - blank ;
+: delFromTop ( blk pos -- )   swap block   2dup (delFromTop)
+   SCRSIZ + (delFromTop)   update ;
+: blankBottom ( -- )   bufpos cps curpos -   2dup blank
+   swap SCRSIZ + swap blank   upd ;
+: insertBlock ( -- )   mark   begline   curpos 0= if   c/l +cur   then
+   inShadow? if   edtshdw   then
+   &scr @ dup fs.insblock   1+ curpos delFromTop   blankBottom ;
+
+create Z_cmd   char Z , ' exitupd ,   char N , ' nxtblk ,
+ char P , ' lstblk ,   char x , ' quited ,   char s , ' status ,
+ char S , ' edtshdw ,   9 , ' fixTab ,   char i , ' insertBlock ,
+ char d , ' deleteBlock ,
+ 0 , 0 ,
+
+: saveKey   key Z_cmd dispatch   ;
+
+
+
+\\                                                                    vandys
+: overwriteMode   ['] insertoff &mode !   ;
+: insertMode   ['] inserton &mode !   ;
+
+: openDown   onlast? if   beep exit   then
+   #toeol 1+ +cur insertline drop   insertMode ;
+: openHere   curpos >bol &cur !   insertline drop   insertMode ;
+
+\\ : changeKey   key   ['] change_cmd dispatch   ;
+: delKey   key d_cmd dispatch   ;
+: endWord   rword lword   ;
+: backWord   lword begin   bol? if exit then   bufpos c@ bl = if
+   1 +cur exit then   -1 +cur again ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: (findCount) ( -- n )   &findDir @ 0>   if #toeol else #tobol then ;
+: (findChar) ( c -- )   dup ESC = if   drop exit   then
+   &findchar c!   curpos (findCount) 0 do ( u-pos )
+      &findDir @ +   dup >bufadr c@ &findchar c@ = if
+         &cur ! unloop exit   then
+   loop   drop beep ;
+: findChar ( -- )   1 &findDir !   key (findChar) ;
+: findCharb ( -- )   -1 &findDir !   key (findChar) ;
+: findAgain ( -- )   &findchar c@ (findChar)   ;
+: appendMode ( -- )   1 +cur   insertMode   ;
+: tillChar ( -- )   findChar -1 +cur   ;
+: appendModef ( -- )   endline insertMode   ;
+
+
+
+
+
+
+
+
+
+
+
+
+\\                                                                    vandys
+: (setDigs)   10 0 do   [char] 0 i + ,   ['] doDig ,   loop ;
+create top_cmd            char a , ' appendMode ,   char b , ' backWord ,
+( char c , ' changeKey , ) char d , ' delKey ,      char e , ' endWord ,
+ char f , ' findChar ,    char h , ' larrow ,       char i , ' insertMode ,
+ char j , ' darrow ,      char k , ' uarrow ,       char l , ' rarrow ,
+ char m , ' markPos ,     char n , ' searchAgain ,  char o , ' openDown ,
+ char r , ' replChar ,
+ char p , ' cmd_put ,    char t , ' tillChar ,     char w , ' rword ,
+ char x , ' delchar ,     char A , ' appendModef , char F , ' findCharb ,
+ char G , ' doGo ,
+ char H , ' 1st ,         char I , ' firstInsert ,  char J , ' joinLine ,
+ char L , ' lst ,         char O , ' openHere ,     char P , ' cmd_Put ,
+ char M , ' middle ,      13 , ' rett ,             char ; , ' findAgain ,
+ char X , ' backDchar ,   32 , ' rarrow ,           char ^ , ' startLine ,
+ char Y , ' cmd_Yank ,    char Z , ' saveKey ,      char $ , ' endline ,
+ (setDigs) \\ Fill in handler for 0..9
+ char ' , ' tick ,        char R , ' overwriteMode ,
+ char / , ' slash ,       char ? , ' backslash ,
+ 0 , 0 ,
+
+
+
+
+
+\\                                                                    vandys
+: keycmd   key dup &cmdc !   top_cmd dispatch ;   ' keycmd 'command !
+
+[ifndef] VIDEBUG?   also forth definitions   [then]
+
+: v   decimal
+  here #edvars cells erase
+  depth 0= if   scr @   then   &scr !
+  heading   cr cr .\" Ready when you are\" cr cr
+  getid init
+  begin   [ifdef] VIDEBUG? 12321 [then]
+    &cmdc @ isdigit? 0= if   &argvalid? off   &arg off   then
+    mvcur
+    &delta @   &mode @execute   &delta @ <> if   redraw   then
+  [ifdef] VIDEBUG? 12321 - abort\" vi stack\" [then]   again   ;
+
+[ifndef] VIDEBUG?   only   [then]
+
+
+
+
+
+
+
+
+"

@@ -1,0 +1,26 @@
+"\\ Load stuff under running system                                    vandys
+
+\\ Note initial parts of filesystem and extras were loaded during
+\\  bootstrap of the filesystem.
+fs.open# filesys   nip 11833 swap thru
+
+fs.load local
+fs.load vi
+fs.load debugger
+\\ fs.load heap
+fs.load assembler
+\\ fs.load btree   fs.load old-editor   fs.load disasm   fs.load isr
+fs.load rtc
+
+fs.open# extras   nip 11205 swap thru
+fs.load oo
+fs.load hide-sys
+
+
+
+
+
+
+
+
+"

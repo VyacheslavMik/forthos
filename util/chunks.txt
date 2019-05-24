@@ -1,0 +1,26 @@
+"\\ Support for temporary data structures                              vandys
+only extensions definitions
+
+List -> new constant (ephem) scrLocal
+
+: ephem ( a -- a )   dup (ephem) -> add ;
+
+: (cleanEphem) ( 0 a -- )   nip   bkfree ; scrLocal
+: cleanEphem ( -- )   0   ['] (cleanEphem)   (ephem) -> do
+   (ephem) -> empty! ;
+
+Object -> :method ephem ( self -- )   ephem drop method;
+
+
+
+
+
+
+
+
+
+
+
+
+
+"
