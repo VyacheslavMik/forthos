@@ -1,33 +1,33 @@
-"\\ Object Oriented extensions--comments                               vandys
+\ Object Oriented extensions--comments                               vandys
 
-\\ Creating a new class:
-\\  <superclass> -> subclass: <new-class>
-\\  or... <superclass> -> subclassVars: <new-class>
-\\                          int8/int16/int32/intcell <name> ...   endcvars
-\\ Define new class's instance variables:
-\\  ivars:   int8/int16/int32/intcell <name> ...   endivars
-\\ Define a method:
-\\  <class> -> :method <method-name> { arg1 ... argn self -- result... }
-\\     .... method;
-\\ Creating an instance:
-\\  <class> -> new ( -> <ob> )
-\\ Invoking a method:
-\\  <ob-on-stack> -> <method-name>
-\\ Invoking method in superclass:
-\\  <ob-on-stack> super-> <method-name>
-
-
+\ Creating a new class:
+\  <superclass> -> subclass: <new-class>
+\  or... <superclass> -> subclassVars: <new-class>
+\                          int8/int16/int32/intcell <name> ...   endcvars
+\ Define new class's instance variables:
+\  ivars:   int8/int16/int32/intcell <name> ...   endivars
+\ Define a method:
+\  <class> -> :method <method-name> { arg1 ... argn self -- result... }
+\     .... method;
+\ Creating an instance:
+\  <class> -> new ( -> <ob> )
+\ Invoking a method:
+\  <ob-on-stack> -> <method-name>
+\ Invoking method in superclass:
+\  <ob-on-stack> super-> <method-name>
 
 
 
 
 
 
-\\ Object Oriented extensions--comments                               vandys
 
-\\ Note that initially all storage is from the heap (allot), but this may be
-\\  switched on the fly to the bucket allocator.  Care must be taken if you
-\\  intend to unexec the image...
+
+\ Object Oriented extensions--comments                               vandys
+
+\ Note that initially all storage is from the heap (allot), but this may be
+\  switched on the fly to the bucket allocator.  Care must be taken if you
+\  intend to unexec the image...
 
 only   extensions definitions   also forth
 
@@ -48,12 +48,12 @@ only   extensions definitions   also forth
 
 
 
-\\ Object Oriented extensions--basic defines                          vandys
+\ Object Oriented extensions--basic defines                          vandys
 
 64 constant #sels Local   #sels cells constant #selsSize Local
 1234321 constant #classMagic Local
 
-struct Class        \\ Break circular dependency by building ivars directly
+struct Class        \ Break circular dependency by building ivars directly
    intcell class
    intcell magic
    intcell super
@@ -73,9 +73,9 @@ endstruct
 
 
 
-\\ OO--define initial classes, build initial method vector array      vandys
+\ OO--define initial classes, build initial method vector array      vandys
 
-\\ Object, root of type hierarchy, created here manually
+\ Object, root of type hierarchy, created here manually
 : $strcdup ( str cnt -- str' )   here over c, -rot   dup 1+ allot align
    ( mem str cnt )   2 pick 1+ swap move ;
 : defClass: ( -- )   create   here   Class.size zallot ( classmem )
@@ -84,7 +84,7 @@ endstruct
 defClass: Object   defClass: Class   defClass: MetaObject
    defClass: MetaClass
 
-: noMethod ( -- )   1 abort\" No method\" ; Local
+: noMethod ( -- )   1 abort" No method" ; Local
 here #selsSize allot   constant (rootMethods) Local
 (rootMethods)   #sels   ' noMethod   wfill
 
@@ -98,11 +98,11 @@ here #selsSize allot   constant (rootMethods) Local
 
 
 
-\\ OO--manually wire initial set of classes                           vandys
+\ OO--manually wire initial set of classes                           vandys
 
 struct Object   intcell class   endstruct
 
-MetaObject Object Object>class !   \\ 0 Object Class>super !
+MetaObject Object Object>class !   \ 0 Object Class>super !
 (rootMethods) Object Class>methods !   Object.size Object Class>size !
 Class Object Class>subclasses !
 
@@ -123,7 +123,7 @@ MetaClass MetaObject Class>sibs !
 
 
 
-\\ OO--instance variables                                             vandys
+\ OO--instance variables                                             vandys
 
 variable lastClass Local
 
@@ -148,12 +148,12 @@ variable lastClass Local
 
 
 
-\\ OO-method selectors                                                vandys
+\ OO-method selectors                                                vandys
 
 32 constant selnameSize Local
 variable nsel Local
 create selNames #sels selnameSize * allot align Local
-: selalloc ( a-str u-len -- )   nsel @ dup #sels >= abort\" Out of selectors\"
+: selalloc ( a-str u-len -- )   nsel @ dup #sels >= abort" Out of selectors"
    selnameSize * selNames +   $strconv   nsel @   nsel inc ; scrLocal
 [ifndef] ($cstreq?) : ($cstreq?) (locals).($cstreq?) ; [then]
 
@@ -173,16 +173,16 @@ create selNames #sels selnameSize * allot align Local
 
 
 
-\\ OO-methods                                                         vandys
+\ OO-methods                                                         vandys
 
 variable defClass Local   variable defIdx Local
 variable oldDef Local
 vocabulary oo   ' oo cell+ cell+ cell+ constant oo-addr
 create defName 32 allot Local
 : class? ( class -- )   Class>magic @ #classMagic -
-   abort\" Bad class magic\" ; Local
+   abort" Bad class magic" ; Local
 : def>name { str len -- }   defClass @ Class>name @ { cname }
-   cname c@ len + 30 > abort\" Name too long\"
+   cname c@ len + 30 > abort" Name too long"
    defName cname $strcpy   defName [char] : $ccat
    str len defName $strccat ; Local
 : (:method) ( class -- ??? )   dup class?   defClass !
@@ -198,7 +198,7 @@ create defName 32 allot Local
 
 
 
-\\ OO-methods                                                         vandys
+\ OO-methods                                                         vandys
 
 : setMethod { class idx old-ca new-ca -- }
    idx cells   class Class>methods @ +   dup @ old-ca <> if
@@ -206,32 +206,32 @@ create defName 32 allot Local
    new-ca swap !   class Class>subclasses   begin @ ?dup while
       dup idx old-ca new-ca recurse
    Class>sibs repeat ; scrLocal
-: method; ( ??? -- )   defClass @ dup { def }   0= abort\" Not in :method\"
+: method; ( ??? -- )   defClass @ dup { def }   0= abort" Not in :method"
    defClass off   defIdx @ { idx }
    [compile] ;   oldDef @ current !   last @ nfa>cfa @ { ca }
    def Class>methods @ idx cells + @ { old-ca }
    def idx old-ca ca setMethod ; immediate compile-only
-: trapSemi ( -- )   defClass @   defClass off   abort\" missing method;\" ;
+: trapSemi ( -- )   defClass @   defClass off   abort" missing method;" ;
  scrLocal
 [ifndef] 'semiHook   : 'semiHook   (locals).'semiHook ;   [then]
 ' trapSemi 'semiHook !
 
-\\ Now bind (:method) to Class -> :method
-:noname   c\" :method\" ; execute constant \":method\" scrLocal
-Class   \":method\" count >sel   ' noMethod   ' (:method)   setMethod
+\ Now bind (:method) to Class -> :method
+:noname   c" :method" ; execute constant ":method" scrLocal
+Class   ":method" count >sel   ' noMethod   ' (:method)   setMethod
 
 
 
 
-\\ OO-invocation                                                      vandys
+\ OO-invocation                                                      vandys
 
-:noname c\" Bad class magic\" ; execute constant \"badMagic Local
+:noname c" Bad class magic" ; execute constant "badMagic Local
 code (->) ( ob -- ob )
    0 [esp] ecx mov   lods   0 [ecx] ecx mov
    offMagic [ecx] ebx mov   #classMagic # ebx cmp
    1 $ jne   offMethods [ecx] ebx mov
    ebx eax add   0 [eax] eax mov   eax jmp
-1 $:   \"badMagic push#   ' (abort) # eax mov   eax jmp   c; scrLocal
+1 $:   "badMagic push#   ' (abort) # eax mov   eax jmp   c; scrLocal
 
 : -> ( runtime: ob -- )   bl parse >sel cells   compiling? if
       (genhook)   compile (->)   ,   exit   then ( ob idx )
@@ -248,13 +248,13 @@ code (->) ( ob -- ob )
 
 
 
-\\ OO-superclass invocation                                           vandys
+\ OO-superclass invocation                                           vandys
 
 code (super->)
    0 [esp] ecx mov   lods   0 [ecx] ecx mov   0 [eax] eax mov
    offMagic [ecx] ebx mov   #classMagic # ebx cmp   1 $ jne
    eax jmp
-1 $:   \"badMagic push#   ' throw # eax mov   eax jmp   c; scrLocal
+1 $:   "badMagic push#   ' throw # eax mov   eax jmp   c; scrLocal
 
 : super-> ( runtime: ob -- )   bl parse >sel cells   (genhook)
    compile (super->)
@@ -273,14 +273,14 @@ code (super->)
 
 
 
-\\ OO-instance creation                                               vandys
+\ OO-instance creation                                               vandys
 
 variable 'allocator scrLocal
 : allocHeap ( size -- a )   here swap zallot ; scrLocal
 : allocBk ( size -- a )   bkzalloc ; scrLocal
 : oo-heapmem ( -- )   ['] allocHeap   'allocator ! ;
 : oo-bkmem ( -- )   ['] allocBk   'allocator ! ;
-oo-heapmem \\ Default, start from heap memory
+oo-heapmem \ Default, start from heap memory
 Class -> :method new { self -- obj }
    self Class>size @ aligned 'allocator @execute ( obj )
    self over Object>class !   method;
@@ -298,11 +298,11 @@ Object -> :method class ( self -- class )   Object>class @ method;
 
 
 
-\\ OO-supporting methods for class definition                         vandys
+\ OO-supporting methods for class definition                         vandys
 
-create \"Meta\" scrLocal    char M c, char e c, char t c, char a c,
+create "Meta" scrLocal    char M c, char e c, char t c, char a c,
 : tagMeta ( a -- a' )   6 $strdup+ { str }
-   str count over 4 + swap move   \"Meta\" str 1+ 4 move   4 str c+!
+   str count over 4 + swap move   "Meta" str 1+ 4 move   4 str c+!
    align   str ; scrLocal
 variable name Local   variable metaname Local
  variable selfmeta Local   variable metaclass Local
@@ -323,7 +323,7 @@ variable name Local   variable metaname Local
 
 
 
-\\ OO-building subclasses                                             vandys
+\ OO-building subclasses                                             vandys
 
 Class -> :method subclass: ( self -- )   dup mkMeta   mkClass method;
 
@@ -348,12 +348,12 @@ Class -> :method subclassVars: ( self -- )
 
 
 
-\\ OO-instances and basic classes                                     vandys
+\ OO-instances and basic classes                                     vandys
 
 Object -> :method free ( self -- )   bkfree method;
 Object -> :method .class ( self -- )   Object>class @   Class>name @
    .id method;
-Object -> :method . ( self -- )   .\" A \" -> .class method;
+Object -> :method . ( self -- )   ." A " -> .class method;
 
 Object -> subclass: Collection
 Collection -> :method empty? { self -- ? }   self -> size   0= method;
@@ -361,8 +361,8 @@ Collection -> :method in? { self -- ? }   self -> indexOf
    dup if nip then   method;
 : (.) ( 0 elem -- )   nip . ; scrLocal
 Collection -> :method .elems ( self -- )   0   ['] (.)   rot -> do method;
-Collection -> :method . ( self -- )   dup -> .class .\" {\"
-   -> .elems   .\" }\" cr method;
+Collection -> :method . ( self -- )   dup -> .class ." {"
+   -> .elems   ." }" cr method;
 Collection -> :method first ( self -- elem )   0   swap -> @ method;
 Collection -> :method last ( self -- elem )
    dup -> size 1-   swap -> @ method;
@@ -373,4 +373,3 @@ Collection -> :method last ( self -- elem )
 
 
 
-"

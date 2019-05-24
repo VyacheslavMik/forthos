@@ -1,18 +1,18 @@
-"\\                                                                    vandys
-\\ Block cache code
-\\ A simple port of routines in Forth-83 for 6809 by Wilson M. Federici
-\\ Requires a system-dependant disk primitive \"RDWT\"
-\\   data-address, block#, flag -- error-code
-\\         flag:  zero=write, nonzero=read
-\\         error-code:  nonzero=error
-\\ The basis of source screen shadows is found here; a single block
-\\  of 4k is split into a pair of 80x25 (i.e., full screen) pages.
-\\  The first is the source screen, the second its shadow.  Each page
-\\  is 2000 bytes, which leaves 96 bytes of \"reserved\" space at the
-\\  end of each code block.  Source metadata may end up living here.
+\                                                                    vandys
+\ Block cache code
+\ A simple port of routines in Forth-83 for 6809 by Wilson M. Federici
+\ Requires a system-dependant disk primitive "RDWT"
+\   data-address, block#, flag -- error-code
+\         flag:  zero=write, nonzero=read
+\         error-code:  nonzero=error
+\ The basis of source screen shadows is found here; a single block
+\  of 4k is split into a pair of 80x25 (i.e., full screen) pages.
+\  The first is the source screen, the second its shadow.  Each page
+\  is 2000 bytes, which leaves 96 bytes of "reserved" space at the
+\  end of each code block.  Source metadata may end up living here.
 
 only
-variable dskerr \\ error-code from last rdwt
+variable dskerr \ error-code from last rdwt
 
 
 
@@ -23,18 +23,18 @@ variable dskerr \\ error-code from last rdwt
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : r/w  ( data-addr, blk#, flag -- )
-  \\   flag   zero=write, nonzero=read
-  rdwt dup dskerr ! abort\" disk r/w error\" ;
+  \   flag   zero=write, nonzero=read
+  rdwt dup dskerr ! abort" disk r/w error" ;
 
-BLKSIZ constant BLKSIZ          \\ Byte of data in a block
-BLKCOLS constant BLKCOLS        \\ Columns in a screen
+BLKSIZ constant BLKSIZ          \ Byte of data in a block
+BLKCOLS constant BLKCOLS        \ Columns in a screen
 BLKROWS constant BLKROWS
-BLKCOLS BLKROWS *               \\ Bytes per screen
+BLKCOLS BLKROWS *               \ Bytes per screen
         constant SCRSIZ
-SCRSIZ 2* dup constant BASESIZ  \\ Non-resid block contents
-BLKSIZ swap -                   \\ Residual bytes on end of each block
+SCRSIZ 2* dup constant BASESIZ  \ Non-resid block contents
+BLKSIZ swap -                   \ Residual bytes on end of each block
         constant BLKRESID
 
 
@@ -48,22 +48,22 @@ BLKSIZ swap -                   \\ Residual bytes on end of each block
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 BUFSIZ constant BUFSIZ
-  \\ Size of an in-core disk block buffer:
-  \\  1 cell link,  1 cell block number,
-  \\  1 cell update-flag, BLKSIZ bytes data
+  \ Size of an in-core disk block buffer:
+  \  1 cell link,  1 cell block number,
+  \  1 cell update-flag, BLKSIZ bytes data
 
-\\ Move from buffer pointer to each of its fields
+\ Move from buffer pointer to each of its fields
 : (>buflink) ( ptr -- ptr ) ;
 : (>bufblock) ( ptr -- ptr' )   cell+ ;
 : (>bufflag) ( ptr -- ptr' )   2 cells + ;
 : (>bufbod) ( ptr -- ptr' )   3 cells + ;
 : (bod>buf) ( ptr' -- ptr )   3 cells - ;
 
-#BUFS constant #BUFS    \\ # bufs held in memory--at least one
+#BUFS constant #BUFS    \ # bufs held in memory--at least one
 
-\\ Actual buffer cache memory
+\ Actual buffer cache memory
 create (BUFS)   #BUFS BUFSIZ * allot   align
 
 
@@ -73,24 +73,24 @@ create (BUFS)   #BUFS BUFSIZ * allot   align
 
 
 
-\\                                                                    vandys
-create PREV 0 ,           \\ Most recently accessed block
+\                                                                    vandys
+create PREV 0 ,           \ Most recently accessed block
 
-\\ Set/clear dirty flag, block presence
+\ Set/clear dirty flag, block presence
 : (bufmod) ( buf -- buf )   dup (>bufflag) on ;
 : (bufclean) ( buf -- buf )   dup (>bufflag) off ;
 : (noblock) ( buf -- buf )   -1 over (>bufblock) ! ;
 : (bufmod?) ( buf -- n )   (>bufflag) @ ;
 
-\\ Write out buffer if dirty
+\ Write out buffer if dirty
 : (sv)  ( buffer -- )   dup (bufmod?) if
       dup (>bufbod)   over (>bufblock) @   0 r/w   (bufclean)
    then   drop ;
 
-\\ Remove the block which follows the argument block from the
-\\ linked list built from the buffer \"link\" pointers.  The
-\\ removed block points to the PREV block, and PREV is set to
-\\ point to this block.
+\ Remove the block which follows the argument block from the
+\ linked list built from the buffer "link" pointers.  The
+\ removed block points to the PREV block, and PREV is set to
+\ point to this block.
 : (lnk)  ( link -- buffer )
    dup @ dup @ rot !   PREV @ over !   dup PREV ! ;
 
@@ -98,14 +98,14 @@ create PREV 0 ,           \\ Most recently accessed block
 
 
 
-\\                                                                    vandys
-\\ Look up block, return to caller of caller if found--
-\\  this is an UNSTRUCTURED RETURN!
-\\ Otherwise return pointer to oldest block in \"link\"
-\\ list of blocks (causing this to become the newest
-\\ block, as it will presumably be immediately used in
-\\ an I/O request)
-: (bk)   dup 0= abort\" Block 0\"   pause ( hook for multitasker )
+\                                                                    vandys
+\ Look up block, return to caller of caller if found--
+\  this is an UNSTRUCTURED RETURN!
+\ Otherwise return pointer to oldest block in "link"
+\ list of blocks (causing this to become the newest
+\ block, as it will presumably be immediately used in
+\ an I/O request)
+: (bk)   dup 0= abort" Block 0"   pause ( hook for multitasker )
    offset @ +   PREV @ (>bufblock) @ over = if
       drop   PREV @ (>bufbod)   r> drop ( !!! ) exit   then
    PREV ( blk# lnkptr ) begin   dup @ @   while
@@ -123,20 +123,20 @@ create PREV 0 ,           \\ Most recently accessed block
 
 
 
-\\                                                                    vandys
-\\ Get block from cache, or do an I/O to get this block
-\\ into memory.
+\                                                                    vandys
+\ Get block from cache, or do an I/O to get this block
+\ into memory.
 : block  (bk)  ( returns to caller if already present )
    ( blk# buf )  dup (sv) tuck   ( buf blk# buf )
    (>bufbod) over 1 r/w  ( -- buffer blk# )
    over (>bufblock) !   (>bufbod) ;
 
-\\ Get block from cache, or else get an uninitialized
-\\ block which is assigned to this block number.
+\ Get block from cache, or else get an uninitialized
+\ block which is assigned to this block number.
 : buffer  ( blk# -- buf )
    (bk)   ( blk# buf ) dup (sv) tuck   (>bufblock) !   (>bufbod) ;
 
-\\ Set \"block dirty\" flag of most recently accessed block
+\ Set "block dirty" flag of most recently accessed block
 : update   PREV @ (bufmod) drop ;
 
 
@@ -148,7 +148,7 @@ create PREV 0 ,           \\ Most recently accessed block
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : (buffer?) ( blk# -- buf | 0 )   (BUFS) #BUFS 0 do   ( blk# buf )
       2dup (>bufblock) @ = if   nip unloop exit   then
    BUFSIZ + loop   2drop 0 ;
@@ -173,11 +173,11 @@ create PREV 0 ,           \\ Most recently accessed block
 
 
 
-\\                                                                    vandys
-\\ Initialize immediately after loading
+\                                                                    vandys
+\ Initialize immediately after loading
 initialize definitions
 : boot-buffers ( bool -- n | )
-    if   empty-buffers                      \\ Init chains
+    if   empty-buffers                      \ Init chains
     else   900   then
 ;   only
 
@@ -198,7 +198,7 @@ initialize definitions
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 variable scr
 
 : list ( u -- )   cr   scr !   BLKROWS 2* 0 do   cr
@@ -223,8 +223,8 @@ variable scr
 
 
 
-\\                                                                    vandys
-\\ Discard changes to current block
+\                                                                    vandys
+\ Discard changes to current block
 : discard ( -- )   PREV @   (bufclean) (noblock) drop ;
 
 
@@ -248,8 +248,8 @@ variable scr
 
 
 
-\\                                                                    vandys
-\\ Load source from named block
+\                                                                    vandys
+\ Load source from named block
 variable ('endScr)
 : (blktib) ( -- )   blk @ ?dup   if block else tib0 @ then   tib ! ;
 : load ( b -- )
@@ -264,7 +264,7 @@ variable ('endScr)
 
 : thru ( l h -- )   1+ swap do i load loop   ;
 
-\\ : -->   blk @ 1+ load   ; Deprecated
+\ : -->   blk @ 1+ load   ; Deprecated
 
 
 
@@ -273,14 +273,14 @@ variable ('endScr)
 
 
 
-\\ Block utilities                                                    vandys
+\ Block utilities                                                    vandys
 
 : copy-blocks ( from to dest -- )   -rot over - 1+   >r swap r>   0 do
-   .\"   \" over . .\" -> \" dup .
+   ."   " over . ." -> " dup .
    2dup copy   1+ swap 1+ swap   loop 2drop   sync ;
 
 : clear-blocks ( from to -- )   1+ swap do
-   i block  dup BLKSIZ blank   [char] \\ swap c!   update loop   sync ;
+   i block  dup BLKSIZ blank   [char] \ swap c!   update loop   sync ;
 
 : roundup ( u1 u2 -- u )   1- dup >r   +   r> -1 xor and   ;
 : (write_image) ( ptr blk nblk -- )   0 do   2dup block BLKSIZ move
@@ -298,4 +298,3 @@ variable ('endScr)
 
 
 
-"

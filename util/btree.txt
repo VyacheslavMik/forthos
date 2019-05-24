@@ -1,29 +1,29 @@
-"\\ B-trees                                                            vandys
-\\ The order of the B-tree nodes is set at compile time.  Nodes
-\\  can be deleted, but no tree reblancing occurs, so an unbalanced
-\\  B-tree is possible.
+\ B-trees                                                            vandys
+\ The order of the B-tree nodes is set at compile time.  Nodes
+\  can be deleted, but no tree reblancing occurs, so an unbalanced
+\  B-tree is possible.
 
-\\ A node has a cell for the parent, and for the child
-\\  before the lowest key, followed by #BNODE pairs of cells.
+\ A node has a cell for the parent, and for the child
+\  before the lowest key, followed by #BNODE pairs of cells.
 
-\\ Each pair is made up of a key and a value.
+\ Each pair is made up of a key and a value.
 
-\\ If a node holds leafs, then the child pointer is 0, otherwise this
-\\  node is interior.  For leaf nodes, the \"value\" of each pair is
-\\  is the actual value for the given key.  For interior nodes, the
-\\  value is a pointer to a sub-node.
+\ If a node holds leafs, then the child pointer is 0, otherwise this
+\  node is interior.  For leaf nodes, the "value" of each pair is
+\  is the actual value for the given key.  For interior nodes, the
+\  value is a pointer to a sub-node.
 
-\\ The \"key\" for interior nodes indicates the starting range for the
-\\  key space below it.  The initial cell holds a pointer to a sub-node
-\\  for keys before the lowest key value in the node.
+\ The "key" for interior nodes indicates the starting range for the
+\  key space below it.  The initial cell holds a pointer to a sub-node
+\  for keys before the lowest key value in the node.
 
-\\ The \"key\" value must be non-zero, as this implementation uses that
-\\  value as a sentinel for end of valid key/value pairs.
-\\     MORE COMMENTS ON SHADOW
+\ The "key" value must be non-zero, as this implementation uses that
+\  value as a sentinel for end of valid key/value pairs.
+\     MORE COMMENTS ON SHADOW
 
 
 
-\\ B-trees basic manipulation                                         vandys
+\ B-trees basic manipulation                                         vandys
 only extensions definitions
 
 32 dup constant #BNODE Local   1+ 2* cells constant BNSIZE Local
@@ -48,12 +48,12 @@ only extensions definitions
 
 
 
-\\ B-trees lookup                                                     vandys
+\ B-trees lookup                                                     vandys
 
 : (key>leaf) ( key node -- node' )   begin   dup (bnleaf?) not   while
       over swap (bnindex) cell- @   repeat   nip ; Local
 
-: bt@ ( key node -- val T | F )   over 0= abort\" Bad key\"
+: bt@ ( key node -- val T | F )   over 0= abort" Bad key"
    dup btempty? if   2drop false exit then
    over swap (key>leaf) ( key leafnode )
    over swap (bnindex) cell- cell- ( key keyptr )
@@ -73,7 +73,7 @@ only extensions definitions
 
 
 
-\\ B-trees insertion                                                  vandys
+\ B-trees insertion                                                  vandys
 
 : (bnfull?) ( node -- <bool> )
    (bn>pairs) #BNODE 1- 2* cells + @ 0<> ; Local
@@ -98,10 +98,10 @@ variable 'count Local
 
 
 
-\\ B-trees insertion                                                  vandys
+\ B-trees insertion                                                  vandys
 
 : (reparent) ( node subnode -- )   (bn>parent) ! ; Local
-: (bnreparent) ( node -- )   dup (bnleaf?) abort\" Reparent leaf\"
+: (bnreparent) ( node -- )   dup (bnleaf?) abort" Reparent leaf"
    dup dup (bn>child) @ (reparent)
    dup (bn>pairs) begin   @+   while
       @+ ( node nextkeyptr valnode )
@@ -123,7 +123,7 @@ variable 'count Local
 
 
 
-\\ B-trees insertion                                                  vandys
+\ B-trees insertion                                                  vandys
 
 : (bnclone) ( node -- node' )   BNSIZE bkalloc   tuck BNSIZE move
    dup (bnleaf?) not if   dup (bnreparent)   then ; Local
@@ -148,7 +148,7 @@ variable 'count Local
 
 
 
-\\ B-trees insertion, enumeration                                     vandys
+\ B-trees insertion, enumeration                                     vandys
 : (bnsplit) ( node -- node' )
    (bnhalve)   ( node node' key' )   over (bnroot?) if
       2 pick >r   (bnAddRoot)   else
@@ -173,18 +173,18 @@ variable 'count Local
 
 
 
-\\ B-trees testing                                                    vandys
+\ B-trees testing                                                    vandys
 
-[ifdef] TESTING \\ Testing
+[ifdef] TESTING \ Testing
 variable (bcheckKey)
-: (checkKey) ( key -- )   dup (bcheckKey) @ <= abort\" Bad key\"
+: (checkKey) ( key -- )   dup (bcheckKey) @ <= abort" Bad key"
    (bcheckKey) ! ;
-: (bcheckLeaf) ( node -- )   dup (bn>child) @ abort\" Child\"
+: (bcheckLeaf) ( node -- )   dup (bn>child) @ abort" Child"
    (bn>pairs) begin   @+ ?dup while   ( valptr curkey )
       (checkKey)   cell+ repeat   drop ;
 
 : (bcheck) ( parent node -- )   tuck
-   (bn>parent) @ - abort\" Parent mismatch\"
+   (bn>parent) @ - abort" Parent mismatch"
    dup (bnleaf?) if   (bcheckLeaf) exit   then
    dup dup (bn>child) @ recurse
    dup (bn>pairs)   begin   @+   ?dup while   (checkKey)
@@ -192,13 +192,13 @@ variable (bcheckKey)
       -1 (bcheckKey) +!   2 pick swap recurse ( node nextkeyptr )
    repeat   2drop ;
 
-: bcheck   ( node -- )   dup (bnroot?) not abort\" Not at root\"
+: bcheck   ( node -- )   dup (bnroot?) not abort" Not at root"
    (bcheckKey) off   0 swap (bcheck)
-   .\" Highest key is\" (bcheckKey) ? cr ;
+   ." Highest key is" (bcheckKey) ? cr ;
 
 
 
-\\ B-trees testing, display, size                                     vandys
+\ B-trees testing, display, size                                     vandys
 
 btalloc constant b
 : (tb)   dup .   b bcheck ;
@@ -206,10 +206,10 @@ btalloc constant b
    10000 0 do   i   extensions.random 100000 mod
    b bt!   loop ;
 
-[then] \\ TESTING
+[then] \ TESTING
 
 : (.leaf) ( arg val key -- )   space
-   1 u.r .\" ->\"  1 u.r   drop ;
+   1 u.r ." ->"  1 u.r   drop ;
 : .bt ( bt -- )   0 swap ['] (.leaf) swap btDo ; Local
 
 
@@ -223,7 +223,7 @@ btalloc constant b
 
 
 
-\\ B-trees cleanup                                                    vandys
+\ B-trees cleanup                                                    vandys
 
 : (btfree) ( bt -- )   dup (bnleaf?) if   bkfree exit   then
    cell+ @+ recurse   begin @+ while   dup @ recurse
@@ -248,7 +248,7 @@ btalloc constant b
 
 
 
-\\ B-trees key utilities                                              vandys
+\ B-trees key utilities                                              vandys
 
 : (nextover) ( bt -- bt' T | F )   dup (bn>parent) @ ( bt parent )
    dup 0= if   nip exit   then
@@ -257,7 +257,7 @@ btalloc constant b
          cell+ @+ if   nip @ true exit   else
             drop (bn>parent) @   tailrecurse then
       then
-   cell+ @+ 0= until   1 abort\" Child not in parent\" ; scrLocal
+   cell+ @+ 0= until   1 abort" Child not in parent" ; scrLocal
 
 : (bt>sib) ( bt -- bt' T | F )   (nextover) 0= if   false exit   then
    begin   dup (bnleaf?) 0=   while   (bn>child) @   repeat
@@ -273,11 +273,11 @@ btalloc constant b
 
 
 
-\\ B-trees more key utilities                                         vandys
+\ B-trees more key utilities                                         vandys
 
 : (bn>lastkey) ( bt -- 'key )   (bn>pairs) begin @+ while
       cell+   repeat   cell- cell- cell- ; Local
-: bttopKey ( bt -- key )   dup btempty? abort\" Empty btree\"
+: bttopKey ( bt -- key )   dup btempty? abort" Empty btree"
    begin   dup (bn>lastkey)   swap (bnleaf?) if   @ exit   then
       cell+ @   again ; Local
 
@@ -298,7 +298,7 @@ btalloc constant b
 
 
 
-\\ B-trees more key utilities                                         vandys
+\ B-trees more key utilities                                         vandys
 
 : bt>prev ( bt parent -- bt' | 0 )   (bn>pairs) begin @+ while
       ( bt a-val ) 2dup @ = if   nip cell- cell- @ exit   then
@@ -323,7 +323,7 @@ btalloc constant b
 
 
 
-\\ B-trees more key utilities                                         vandys
+\ B-trees more key utilities                                         vandys
 
 : btprevKey ( u bt -- u' T | F )   over swap (key>leaf) ( u btleaf )
    2dup (bnindex)   ( u btleaf a-key )
@@ -348,7 +348,7 @@ btalloc constant b
 
 
 
-\\ B-trees OO class wrapper                                           vandys
+\ B-trees OO class wrapper                                           vandys
 Collection -> subclass: Btree
    ivars: intcell tree   intcell count endivars
 Btree -> class -> :method new ( self -- bt )   super-> new ( bt )
@@ -373,4 +373,3 @@ Btree -> :method empty! ( self -- )   btempty! method;
 
 
 
-"

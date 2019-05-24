@@ -1,20 +1,18 @@
-"\\ Multitasking                                                       vandys
+\ Multitasking                                                       vandys
 os definitions
 
-NPRIO constant NPRIO    \\ # distinct task priorities (0..NPRIO-1)
-create runqs            \\ Lists of tasks which may want to run
+NPRIO constant NPRIO    \ # distinct task priorities (0..NPRIO-1)
+create runqs            \ Lists of tasks which may want to run
         NPRIO 2 cells * allot
-#codes constant #codes          \\  ...private code space
-variable UROOT                  \\ Base user pointer, the one with all
-                                \\  the system memory.
+#codes constant #codes          \  ...private code space
+variable UROOT                  \ Base user pointer, the one with all
+                                \  the system memory.
 
-\\ Get pointers to process fields in USER
-: >next ( 0 + )   ;             \\ Linked lists of tasks
-: >'event   cell+   ;           \\ Vector to poll for edisms()
-: >evarg   cell+ cell+   ;      \\  ...argument to to pass
-: >ctx   3 cells +   ;          \\ Saved RP to restore context
-
-
+\ Get pointers to process fields in USER
+: >next ( 0 + )   ;             \ Linked lists of tasks
+: >'event   cell+   ;           \ Vector to poll for edisms()
+: >evarg   cell+ cell+   ;      \  ...argument to to pass
+: >ctx   3 cells +   ;          \ Saved RP to restore context
 
 
 
@@ -23,24 +21,26 @@ variable UROOT                  \\ Base user pointer, the one with all
 
 
 
-\\                                                                    vandys
-\\ Calculate offsets to other user fields
-\\ TBD... the \"<field> up @ -\" part is invariant... get
-\\  it flattened to a constant in the target.
+
+
+\                                                                    vandys
+\ Calculate offsets to other user fields
+\ TBD... the "<field> up @ -" part is invariant... get
+\  it flattened to a constant in the target.
 : >rp0   rp0 up @ -   +   ;
 : >sp0   sp0 up @ -   +   ;
 : >prio   prio up @ -   +   ;
 : >tib   tib up @ -   +   ;   : >tib0   tib0 up @ -   +   ;
 : >cp   cp up @ -   +   ;
 
-\\ Return pointer to appropriate run queue slot given USER pointer
+\ Return pointer to appropriate run queue slot given USER pointer
 : i>runq   2 cells * runqs +   ;
 : >runq ( ua -- q )   >prio @ i>runq   ;
 
-\\ Restore SP and then return to existing return stack
+\ Restore SP and then return to existing return stack
 : (resume) ( -- )   r> sp!   ;
 
-\\ A literal of the address of (resume)'s high-level body
+\ A literal of the address of (resume)'s high-level body
 meta-' (resume)  cell+ cell+   constant (call-resume)
 
 
@@ -48,20 +48,20 @@ meta-' (resume)  cell+ cell+   constant (call-resume)
 
 
 
-\\                                                                    vandys
-\\ Switch to new user area, saving state in old one
+\                                                                    vandys
+\ Switch to new user area, saving state in old one
 : (swtch) ( unew -- )   up @ over <> if
   sp@ cell+ >r   (call-resume)   >r
   rp@ up @ >ctx !   dup up !   >ctx @ rp!
  else   drop   then   ;
 
-\\ Remove task from FIFO queue
+\ Remove task from FIFO queue
 : fifo-rem ( q prev -- )
-    2dup <> if                  \\ Not removing head...
-        2dup dup @ rot cell+    \\ Move tail to prev if was last
+    2dup <> if                  \ Not removing head...
+        2dup dup @ rot cell+    \ Move tail to prev if was last
         dup @ rot = if   !   else   2drop   then
     then
-    nip dup @ @ swap !          \\ Point prev to next node
+    nip dup @ @ swap !          \ Point prev to next node
 ;
 
 
@@ -73,7 +73,7 @@ meta-' (resume)  cell+ cell+   constant (call-resume)
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : fifo-queue ( q n -- )
     0 over !
     over @ if
@@ -84,7 +84,7 @@ meta-' (resume)  cell+ cell+   constant (call-resume)
     swap cell+ !   ;
 
 : (runit) ( q prev node -- )
-    -rot fifo-rem       \\ Save node and remove from queue
+    -rot fifo-rem       \ Save node and remove from queue
     (swtch)   true ;
 
 
@@ -98,21 +98,21 @@ meta-' (resume)  cell+ cell+   constant (call-resume)
 
 
 
-\\                                                                    vandys
-\\ For a given priority slot, scan across for something runnable.
-\\ This may be a task ready to run, or a task waiting for an event
-\\ (and we will invoke a poll of that event here).
-\\ Returns true if something was found & run.
+\                                                                    vandys
+\ For a given priority slot, scan across for something runnable.
+\ This may be a task ready to run, or a task waiting for an event
+\ (and we will invoke a poll of that event here).
+\ Returns true if something was found & run.
 : (scan) ( queue -- )
-    \\ Walk the linked list of tasks
+    \ Walk the linked list of tasks
     dup begin dup @ ?dup while
-        \\ An edisms task
+        \ An edisms task
         dup >'event @ if
             dup >evarg @ over >'event @execute if
                 (runit) exit then
-            \\ Not ready to run, drop node pointer
+            \ Not ready to run, drop node pointer
             drop
-        \\ Simply ready to run
+        \ Simply ready to run
         else   (runit) exit   then
     >next @ repeat 2drop false
 ;
@@ -123,21 +123,21 @@ meta-' (resume)  cell+ cell+   constant (call-resume)
 
 
 
-\\                                                                    vandys
-\\ Find something to run
+\                                                                    vandys
+\ Find something to run
 : (sched)
-    \\ Endlessly scan the priority queues in order
+    \ Endlessly scan the priority queues in order
     begin NPRIO 0 do
-        i 2 cells * runqs +     \\ Point to i'th prio queue
-        (scan)                  \\ Look for a task to run
-        if   unloop exit   then \\  ...leave if it happened
+        i 2 cells * runqs +     \ Point to i'th prio queue
+        (scan)                  \ Look for a task to run
+        if   unloop exit   then \  ...leave if it happened
     loop again
 ;
 
-\\ Set passed task runnable
+\ Set passed task runnable
 : setrun ( a -- )   dup >runq swap fifo-queue   ;
 
-\\ 'pause hook to access scheduler
+\ 'pause hook to access scheduler
 : (mpause) ( -- )   up @ 0 over >'event ! setrun (sched)   ;
 
 
@@ -148,43 +148,43 @@ meta-' (resume)  cell+ cell+   constant (call-resume)
 
 
 
-\\                                                                    vandys
-\\ edisms
-\\       Block until event
+\                                                                    vandys
+\ edisms
+\       Block until event
 : edisms ( 'fn a -- )
-    \\ Record our event dismiss parameters
+    \ Record our event dismiss parameters
     up @ tuck >evarg ! tuck >'event !
-    \\ Put us on the event queue and drop into scheduler
+    \ Put us on the event queue and drop into scheduler
     dup >runq swap fifo-queue (sched)
 ;
 
-\\ Clone existing stack into appropriately allocated new stack
-\\ We duplicate eforth.asm's behavior of padding the top of the stack
-\\ by 8 cells--there's no indication of why this is needed or desired.
+\ Clone existing stack into appropriately allocated new stack
+\ We duplicate eforth.asm's behavior of padding the top of the stack
+\ by 8 cells--there's no indication of why this is needed or desired.
 : (newstack) ( s s0 u -- a )
-    \\ Stack memory pointer, save as pointer to top
+    \ Stack memory pointer, save as pointer to top
     here over 8 cells + allot + >r
-    \\ Count of amount of memory to clone
+    \ Count of amount of memory to clone
     over -
-    \\ Copy it
+    \ Copy it
     r@ over - swap cmove
-    \\ Return pointer to top
+    \ Return pointer to top
     r>   ;
 
 
 
-\\ fork--create new task                                              vandys
+\ fork--create new task                                              vandys
 
-\\ The operand and return stacks are cloned from the caller.  The return
-\\ value is 0 in the new task, and the USER pointer in the original caller.
-\\ The new task will not run until it is passed to setrun.
+\ The operand and return stacks are cloned from the caller.  The return
+\ value is 0 in the new task, and the USER pointer in the original caller.
+\ The new task will not run until it is passed to setrun.
 
 TIBS constant TIBS
 #stack constant #stack
 #rstack constant #rstack
 
 : fork ( -- u | 0 )
-   up @ UROOT @ - abort\" Only task 0 can fork\"
+   up @ UROOT @ - abort" Only task 0 can fork"
 
    up @ here #user dup allot over >r cmove r>
    rp@ rp0 @ #rstack (newstack) over >rp0 !
@@ -198,7 +198,7 @@ TIBS constant TIBS
 
 
 
-\\ ...fork, continued                                                 vandys
+\ ...fork, continued                                                 vandys
    here TIBS allot   dup TIBS erase
    2dup swap >tib !   over >tib0 !
    here #codes allot over >cp !
@@ -223,22 +223,22 @@ TIBS constant TIBS
 
 
 
-\\                                                                    vandys
-\\ Display tasks active in system.
+\                                                                    vandys
+\ Display tasks active in system.
 : (.proc) ( up -- ) base @ swap dup hex 8 u.r 3 spaces
  dup >prio @ 3 u.r 3 spaces
- up @ over = if .\"  O\" else
-  dup >'event @ ?dup if .\"  E    \" 1 u.r else .\"  R\" then then
+ up @ over = if ."  O" else
+  dup >'event @ ?dup if ."  E    " 1 u.r else ."  R" then then
  drop
  cr base ! ;
 : .procs
- cr .\" Proc ptr    Prio State  Event\" cr
+ cr ." Proc ptr    Prio State  Event" cr
  up @ (.proc)
  NPRIO 0 do i i>runq @ begin ?dup while
   dup (.proc) >next @
  repeat loop ;
 
-\\ Connect and disconnect scheduler hooks
+\ Connect and disconnect scheduler hooks
 : multi  ['] (mpause) 'pause !   ;
 : single   0 'pause !   ;
 
@@ -248,9 +248,9 @@ TIBS constant TIBS
 
 
 
-\\                                                                    vandys
-\\ Bootup actions; record base user pointer and initialize to single
-\\  tasking.
+\                                                                    vandys
+\ Bootup actions; record base user pointer and initialize to single
+\  tasking.
 also initialize definitions
 : boot-os ( bool -- n | )
  if
@@ -273,4 +273,3 @@ only
 
 
 
-"

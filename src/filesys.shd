@@ -1,6 +1,6 @@
-"
 
-All filesystem words go in the \"fs\" vocabulary
+
+All filesystem words go in the "fs" vocabulary
 Magic # for metadata         Name length for filename
 Shape of metadata, which is located in the last 96 bytes of a 4k block
 Block types: file, directory, and free blocks in each
@@ -30,7 +30,7 @@ Shape of an entry in a directory block
 : (cwd>) Return block containing CWD
 : (cwd>meta) Metadata of CWD
 : (block>meta) Convert block number to metadata pointer
-: root Second cell of \"cwd\" user space is root of filesystem
+: root Second cell of "cwd" user space is root of filesystem
 : ($dirent) Return pointer to matching dirent in CWD, or 0
                     Check for end of valid entries
       Compare name
@@ -95,7 +95,7 @@ Shape of an entry in a directory block
 
 : .head Display the heading for a .ls output
 : .ls Display all (non-deleted) entries
-: ls Alias for .ls, so \"fs.ls\" works like you'd expect
+: ls Alias for .ls, so "fs.ls" works like you'd expect
 
 
 
@@ -158,8 +158,8 @@ Shape of an entry in a directory block
 : size! Set size of file   Sanity
    Calc new size, get file metadata
    Verify head of file (meta>here is 0 in body blocks of file)
-   Verify room                                Save old, new \"here\"
-   Set \"here\" to new end of file
+   Verify room                                Save old, new "here"
+   Set "here" to new end of file
    Now mark affected block range to their new value
 
 : copy Copy only data contents, leaving metadata alone
@@ -225,7 +225,7 @@ Shape of an entry in a directory block
 
 
 
-: (movedown) Ripple down blocks, closing over the \"blkpoint\" block.
+: (movedown) Ripple down blocks, closing over the "blkpoint" block.
 
 
 : (shrink1) Trime size of file by one block
@@ -254,9 +254,9 @@ Shape of an entry in a directory block
 
 : (type!) Assert current type, then change type to indicated one
 
-: $rm \"delete\" entry named by string; set its filetype to \"file deleted\"
+: $rm "delete" entry named by string; set its filetype to "file deleted"
 : rm Delete file named by next token
-: $unrm \"undelete\" previously deleted entry
+: $unrm "undelete" previously deleted entry
 : unrm Interactive version
 : (.lsrm) Iterator, displays only deleted entries
 
@@ -273,4 +273,3 @@ Shape of an entry in a directory block
 
 
 
-"

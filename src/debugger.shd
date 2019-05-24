@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -281,8 +281,8 @@ Record of a code location in the source
 
 
 # cells backward to permit a match
-: entry@ Fetch source code entry for this location, or one \"close
- enough\"
+: entry@ Fetch source code entry for this location, or one "close
+ enough"
 
 
 
@@ -354,13 +354,13 @@ Code hook for arbitrary condition to break to debugger
 : ('trap) Drop into debugger if we're in a selected debug trap range
    Also drop in if our code sniffer hook or'ed in a TRUE
  Note: unstructured jump to (debugger), to leave stack frame intact from caller
-: ('atrap) Trap on about to throw from an abort\"
+: ('atrap) Trap on about to throw from an abort"
    Show abort string
    Show an input location if our input is from a block
 
    Jump into the debugger
 
-\\ Point our trap vectors at these routines
+\ Point our trap vectors at these routines
 
 : (trap) Branch over to trap handling if set in 'trap
 : (genTrap) Compile a (trap) call
@@ -398,4 +398,3 @@ Code hook for arbitrary condition to break to debugger
 
 
 
-"

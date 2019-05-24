@@ -1,5 +1,5 @@
-"
-Put this all in \"drivers\", even the utility parts
+
+Put this all in "drivers", even the utility parts
 Base port for currently selected port
 : com Set COM 1/2, adjusting to base port address
 : defport Make it easy to access the various RS-232 ports by name,
@@ -65,8 +65,8 @@ COM port input buffer, and current count
    Opcode 4: cursor addressing
 
 
-   Opcode 5: clear to end of line (\"blot\")
-   Opcode 6: set/clear \"standout\" display enhancement
+   Opcode 5: clear to end of line ("blot")
+   Opcode 6: set/clear "standout" display enhancement
 
    Opcode 8: Bulk put to screen
 
@@ -123,4 +123,3 @@ COM port input buffer, and current count
 
 
 
-"

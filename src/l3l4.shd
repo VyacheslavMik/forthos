@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -136,7 +136,7 @@ A single set of <addr, gw, mask> is supported per host.
 
 : in_cksum  Per Steven's book - incoming ip header checksum is 0, 16-bit calc.
   Assumptions - Input buffer is contiguous in memory.
-  Note - 1's complement is \" negate 1 - \" but \" not \" seems identical.
+  Note - 1's complement is " negate 1 - " but " not " seems identical.
   Note - 32-bit calculates FFFE, not FFFF as expected.
 
 : in_broadcast  Look for INADDR_ANUCAST, INADDR_BROADCAST, or local broadcast.
@@ -155,7 +155,7 @@ A single set of <addr, gw, mask> is supported per host.
 : ipbuild  Build an IP header.
    Note: Clear cksum field first, as TCP and UDP use the field.
    tos and flags (DF) tcp.
-   Set ip>ip_off to \"don't fragment\"
+   Set ip>ip_off to "don't fragment"
    TODO ttl per session, incoming packet (?)
 
 : ip_output   Add IP header and send via Ethernet.
@@ -793,7 +793,7 @@ Build supported TCP otions -
      to avoid sending too many packets thus avoiding overwehlming the
      connection?  Plus. snd_cwnd is in bytes, not segments.
      The approach - NODELAY OFF for telnet.
-   Note - seg following rexmit is marked \"previous segment lost data\"
+   Note - seg following rexmit is marked "previous segment lost data"
     due to loss in the pipe (here, the NAT box seems like the cause)
     and _not_ due to loss by the NIC.
 
@@ -1058,7 +1058,7 @@ Build supported TCP otions -
       Note - RFC-793 does NOT specify verification of ACK a-la ESTABLISHED.
   (6) URG bit - should not occur.
   (7) Segment text - should not occur.
-  (8) FIN bit - RFC-793 says \"stay in state\" -- but if we should return
+  (8) FIN bit - RFC-793 says "stay in state" -- but if we should return
       when ACK bit is ON or OFF, how could this stage be reached?
 
 
@@ -1259,7 +1259,7 @@ struct tcmd  Telnet command from RFC-854
 
 
 
-telnetd_msg  telnet init message - will suppress go ahead, will echo, \\r\\n
+telnetd_msg  telnet init message - will suppress go ahead, will echo, \r\n
 
 
 
@@ -1284,8 +1284,8 @@ telnetd_msg  telnet init message - will suppress go ahead, will echo, \\r\\n
    Assumptions -
     telnet commands may arrive with data ( TODO test )
     IAC is not in data stream, as 7-bit US ASCII is used.
-    Ignore \\000 in data stream, as telnet-client sends cr as \\r\\000 but
-     cli and vi need only \\r
+    Ignore \000 in data stream, as telnet-client sends cr as \r\000 but
+     cli and vi need only \r
     No password mode, for now.
 
    Behavior -
@@ -1448,4 +1448,3 @@ telnetd input buffer, and current count
 
 
 
-"

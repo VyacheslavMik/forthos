@@ -1,4 +1,4 @@
-"\\ Post-hoc cleanup/hiding of words in \"forth\"                        vandys
+\ Post-hoc cleanup/hiding of words in "forth"                        vandys
 only extensions also forth
 
 hide: (blktib) (buffer?) (bk) (lnk) (sv) (bufmod?) (noblock) (bufclean)
@@ -23,19 +23,19 @@ hide: (^p)
 
 
 
-\\ Post-hoc cleanup/hiding of words in \"forth\"                        vandys
+\ Post-hoc cleanup/hiding of words in "forth"                        vandys
 
 hide: (bs) (echoc) (rchar) (lchar) (notbol?) (<dist) (>dist) (#tib>c)
 hide: (#tib>dist) (#tib@) (vocab?) (ent=) (cnt) (unbase) (str>ext) (base>str)
-hide: (ext>str) (str>base) (str>len) (dot?) (parse) (.\") (c\") (key?) +ch
-hide: 10*+ -digit #TIBLINE (abort\") do$ #VOCS doVOC BASEM doUSER doVAR
+hide: (ext>str) (str>base) (str>len) (dot?) (parse) (.") (c") (key?) +ch
+hide: 10*+ -digit #TIBLINE (abort") do$ #VOCS doVOC BASEM doUSER doVAR
 hide: (+loop) (loop) (?do) (do) doCONST doLIT doLIST
 hide: (bk>size) (>bk) (bkallot) (bkheapStart) (bkheap) (bks) (BKMAXSZ)
 hide: (BKMINSZ) (#BKS) (aout_size) (write_image) ('endScr)
 hide: init{ 'end} end} {! localName! nfa! curArg resetLocals {@
 hide: 'local->eax off_(local) >localNFA maxName localNFAs ($cstreq?)
-hide: curDef ('endDef) ({) 'semiHook proc\"--\" argEntry narg init{--
-hide: end}-- \"badRet TERMINIT TERMVAL findLocal localVocPtr (localVoc)
+hide: curDef ('endDef) ({) 'semiHook proc"--" argEntry narg init{--
+hide: end}-- "badRet TERMINIT TERMVAL findLocal localVocPtr (localVoc)
 
 
 
@@ -48,4 +48,3 @@ hide: end}-- \"badRet TERMINIT TERMVAL findLocal localVocPtr (localVoc)
 
 
 
-"

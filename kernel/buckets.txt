@@ -1,4 +1,4 @@
-"\\ Power-of-two bucket memory allocator                               vandys
+\ Power-of-two bucket memory allocator                               vandys
 20 dup dup constant (#BKS)   ( #bks #bks )
 32 dup constant (BKMINSZ)   ( #bks #bks bkmin )
     swap lshift constant (BKMAXSZ)
@@ -9,12 +9,12 @@ variable (bkheap)   variable (bkheapStart)
    (bkheapStart) @ (bkheap) ! ;
 : (>bk) ( u -- bkptr u' )   >r (bks) (BKMINSZ) begin
    r@ over >   while   2* swap cell+ swap   repeat   r> drop ;
-: bkalloc ( u -- ptr )   cell+ dup (BKMAXSZ) >= abort\" Too big\"
+: bkalloc ( u -- ptr )   cell+ dup (BKMAXSZ) >= abort" Too big"
    (>bk)   over @ ?dup if ( bk u mem )
       nip tuck @ ( mem bk next )   swap !   exit then
    ( bk u )   (bkallot) ( bk mem )   tuck !   cell+ ;
 : bkfree ( ptr -- )   ?dup 0= if exit then
-   dup (bkheap) @ u< abort\" Bad bkfree ptr\"
+   dup (bkheap) @ u< abort" Bad bkfree ptr"
    dup cell- @ ( ptr bk )
    dup @ ( ptr bk oldhead )   rot tuck ! ( bk ptr )   swap ! ;
 
@@ -23,7 +23,7 @@ variable (bkheap)   variable (bkheapStart)
 
 
 
-\\ Power-of-two bucket based memory allocator                         vandys
+\ Power-of-two bucket based memory allocator                         vandys
 : (bk>size) ( bk -- u )   (bks) -   1 cells /
    (BKMINSZ) swap lshift cell- ;
 : bkrealloc ( ptr u -- ptr' )   over 0= if   nip bkalloc exit   then
@@ -48,7 +48,7 @@ variable (bkheap)   variable (bkheapStart)
 
 
 
-\\ String utilities for bucket memory                                 vandys
+\ String utilities for bucket memory                                 vandys
 
 : $bkdup ( str -- str' )   dup c@ 1+ dup bkalloc ( str size str' )
    dup >r   swap move   r> ;
@@ -73,7 +73,7 @@ variable (bkheap)   variable (bkheapStart)
 
 
 
-\\ System initialization of bucket allocator                          vandys
+\ System initialization of bucket allocator                          vandys
 
 also initialize definitions
 : boot-bk ( ? -- n | )   0= if   10000 exit   then
@@ -98,4 +98,3 @@ also initialize definitions
 
 
 
-"

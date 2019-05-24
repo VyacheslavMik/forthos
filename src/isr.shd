@@ -1,4 +1,4 @@
-"
+
 We'll keep all of the x86 goop hidden inside OS
 Selector priv value for kernel mode--we're always in kernel mode
 
@@ -123,14 +123,14 @@ Now load our task register via the GDT
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 How to use multiprocessing edisms()... upper levels need to be converted
  to not poll things like key?.  To keep event check routines short, a
  standard sort of interface needs to be provided so the caller gets a
  pointer to a location whose value will change when the caller may need
  to wake up.
 
-Console needs a \"read count\" field, clock needs a running count of seconds
+Console needs a "read count" field, clock needs a running count of seconds
  and microseconds, and so forth.  Eventually an async API into block(),
  but let's not worry about that yet.
 
@@ -173,4 +173,3 @@ Console needs a \"read count\" field, clock needs a running count of seconds
 
 
 
-"

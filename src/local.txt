@@ -1,4 +1,4 @@
-"\\ Screen and compilation locals                                      vandys
+\ Screen and compilation locals                                      vandys
 only extensions definitions
 
 128 constant (maxlocalQ)
@@ -6,7 +6,7 @@ create (scrQ)   0 , (maxlocalQ) 2* cells allot
 create (localQ)   0 , (maxlocalQ) 2* cells allot
 vocabulary (locals)   current cell+ @ constant (locals-body)
 
-: (saveLocal) ( a-q -- )   dup @ dup (maxlocalQ) >= abort\" Too many locals\"
+: (saveLocal) ( a-q -- )   dup @ dup (maxlocalQ) >= abort" Too many locals"
    ( a-q u ) 2dup 1+ swap !   2* 1+ cells +   last @   current @   rot 2! ;
 also forth definitions
 : scrLocal ( -- )   (scrQ) (saveLocal) ;
@@ -23,13 +23,13 @@ extensions definitions
 
 
 
-\\ Screen and compilation locals                                      vandys
+\ Screen and compilation locals                                      vandys
 
 : (hide) ( entry voc -- )   begin dup @ ?dup while
       ( entry-nfa a-'nfa nfa ) 2 pick over = if
          nfa>lfa @ swap !   (entry->locals)   exit   then
    nip nfa>lfa repeat
-   2drop ( Entry disappeared, perhaps \"forget\" ) ;
+   2drop ( Entry disappeared, perhaps "forget" ) ;
 : (flushQ) ( a-q -- )   dup @+ ( a-q a-q' u ) 0 ?do
    dup 2@ (hide)   cell+ cell+ loop   drop off ;
 : (flushScr) ( -- )   (scrQ) (flushQ) ;
@@ -48,12 +48,12 @@ extensions definitions
 
 
 
-\\ Retroactively hide named words                                     vandys
+\ Retroactively hide named words                                     vandys
 
 : (hide:) ( a -- )   context begin @+ ?dup while
       ( a-token a-ctx a-voc ) 2 pick over find   nip ?dup if
          ( a-token a-ctx a-voc nfa ) swap (hide) 2drop exit   then
-   drop repeat   drop .id 1 abort\"  not found\" ;
+   drop repeat   drop .id 1 abort"  not found" ;
 : hide: ( -- )   begin token dup c@ while
       ( a-token ) (hide:)   repeat drop ;
 
@@ -73,11 +73,11 @@ extensions definitions
 
 
 
-\\ Named local variables for functions                                vandys
+\ Named local variables for functions                                vandys
 
 [ifdef] DEPRECATED
 
-*** This capability implemented in \"extras\", ignore this stuff ***
+*** This capability implemented in "extras", ignore this stuff ***
 
 
 
@@ -90,12 +90,11 @@ variable local-idx scrLocal   variable local-last scrLocal
    ; scrLocal
 : { ( -- )   last @ (local-last) @ <> if   (local-idx) off   then
    begin token dup c@ while
-      c\" }\" over $strcmp 0= if   drop exit   then
-   ({) repeat  1 abort\" Closing brace missing\" ; immediate compile-only
+      c" }" over $strcmp 0= if   drop exit   then
+   ({) repeat  1 abort" Closing brace missing" ; immediate compile-only
 
 [then]
 
 
 
 
-"

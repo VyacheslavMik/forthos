@@ -1,7 +1,7 @@
-"\\                                                                    vandys
+\                                                                    vandys
 only os definitions
 0 constant PRIV_KERN
-\\ Trap types
+\ Trap types
 0 constant T_INVAL   2 constant T_LDT   9 constant T_TSS
 14 constant T_INTR   15 constant T_TRAP   16 constant T_MEMRO
 18 constant T_MEMRW   26 constant T_MEMXR
@@ -23,7 +23,7 @@ endstruct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 0 constant PRIV_KERN
 struct seg
    int16 limit0   int16 base0   int8 base1   int8 type
@@ -48,7 +48,7 @@ struct trapframe
 endstruct
 
 
-\\                                                                    vandys
+\                                                                    vandys
 20 constant HZ
 
 $43 constant PIT_CTRL   $40 constant PIT_CH0
@@ -73,7 +73,7 @@ create tss   here   tss.size dup allot   erase
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : setseg ( base size type segptr -- )   dup seg.size erase
    tuck    swap 3 shiftl 1 or swap seg>type !
    2dup seg>limit0 !   tuck swap 16 shiftr swap !
@@ -85,8 +85,8 @@ create gdt   here   NGDT seg.size * dup allot   erase
 create gdtptr   linmem.size allot
 gdt.size NGDT * 1-   gdtptr linmem>len   !
 gdt   gdtptr linmem>addr   !
-\\ TBD: gdtptr lgdt
-\\ TBD: GDT_TSS >sel ltr
+\ TBD: gdtptr lgdt
+\ TBD: GDT_TSS >sel ltr
 : init_icu ( -- )   $11 ICU0 outb   CPUIDT ICU0 1+ outb
    4 ICU0 1+ outb   1 ICU0 1+ outb   $FF ICU0 1+ outb
    2 ICU0 outb
@@ -98,7 +98,7 @@ gdt   gdtptr linmem>addr   !
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 struct gate   int16 off0   int16 sel   int8 stkwds   int8 type
    int16 off1   endstruct
 : set_idt ( fn type gateptr -- )   gate.size over erase
@@ -109,7 +109,7 @@ create idt   NIDT gate.size * allot
 : init_trap ( -- )   setup_gdt   init_icu   init_pit
    idt   NIDT 0 do   ['] stray_intr over T_TRAP swap set_idt   loop
 : eoi ( -- )   EOI_FLAG dup ICU0 outb   ICU1 outb   ;
-: trap   sp@ .\" Trap\"   ;
+: trap   sp@ ." Trap"   ;
 
 
 
@@ -123,7 +123,7 @@ create idt   NIDT gate.size * allot
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : interrupt   sp@ dup trapframe>traptype @   eoi
 
 Approach for interrupt/exception system of ForthOS:
@@ -148,7 +148,7 @@ Approach for interrupt/exception system of ForthOS:
 (more on shadow)
 
 
-\\
+\
 
 
 
@@ -173,4 +173,3 @@ Approach for interrupt/exception system of ForthOS:
 
 
 
-"

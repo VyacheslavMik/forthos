@@ -1,4 +1,4 @@
-"                                                                     vandys
+                                                                     vandys
 
 Maximum struct name length
 Struct name being compiled (not reentrant)
@@ -83,7 +83,7 @@ Running tally of offset into structure
 
 
 Record of latest routine we've initialized for; lets us know when we're
- starting compilation for a new routine by comparing with \"last\"
+ starting compilation for a new routine by comparing with "last"
 : ($cstreq?) A counted-string string comparison, returns whether the two
  strings are identical
 
@@ -152,7 +152,7 @@ Record the vocab pointer so we can use it for our search hook
 
 When processing arg names, the current index assigned to an arg
 
-Nameless cleanup code run at end of a definition (\";\")
+Nameless cleanup code run at end of a definition (";")
 
 : nfa! Store string into NFA of an existing entry
 
@@ -275,16 +275,16 @@ code init{-- Initialize locals storage in return stack frame, record opstack
 
                                                                      vandys
 
-code 2over \"over\" for double words
+code 2over "over" for double words
 
 
 Pointer to entry code for currently compiling word
 
-: #args Parse next stream of words until \"}\" or \"|\", return count
- and whether it ended on \"}\" (flagging end of value list)
+: #args Parse next stream of words until "}" or "|", return count
+ and whether it ended on "}" (flagging end of value list)
 
 
-: proc\"--\" Parse the ... part of { <args> -- ... }
+: proc"--" Parse the ... part of { <args> -- ... }
 
 
 
@@ -333,13 +333,13 @@ code movjmp Move a block of code, then jump (presumably into it).
  correct memory size.
 
 
-: fastboot Load our own variant of Multiboot-headed code at \"here\",
+: fastboot Load our own variant of Multiboot-headed code at "here",
  then atomically move it to its load point and jump into it.
    Verify that it looks like a Multiboot image
 
-   Decode its fields, get ready to load it at \"here\"
+   Decode its fields, get ready to load it at "here"
 
-   Iterate the blocks, copying them to \"here\"
+   Iterate the blocks, copying them to "here"
 
    Create a Multiboot information structure
 
@@ -348,4 +348,3 @@ code movjmp Move a block of code, then jump (presumably into it).
 
 
 
-"

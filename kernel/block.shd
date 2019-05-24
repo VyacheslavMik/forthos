@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -255,7 +255,7 @@ Most recently list'ed block
 : load Direct input from a block, arranging for proper nesting
    So we can see something happening
    Save old state
-   Set prompt to \"quiet\", saving old prompt
+   Set prompt to "quiet", saving old prompt
    Point input to this block, save old on return stack, set TIB
    Iterate across input lines, re-accessing block when needed
       Start of next line, process, then advance
@@ -288,7 +288,7 @@ Most recently list'ed block
 Size of an a.out header
 : unexec Copy running user area back to prototype, snapshot restart
    Prep call to (write_image), calculate image length in bytes
-   Write image length (less a.out header) to a.out \"textlen\"
+   Write image length (less a.out header) to a.out "textlen"
    Write end of memory to multiboot header
    Scale image size to 4k block count, write it out
 
@@ -298,4 +298,3 @@ Size of an a.out header
 
 
 
-"

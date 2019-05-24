@@ -1,12 +1,12 @@
-"                                                                     vandys
+                                                                     vandys
 
 
-Remember bits of allocated memory which we should free \"later on\"
+Remember bits of allocated memory which we should free "later on"
 
 : ephem Record this bit of memory as ephemeral
 
 : (cleanEphem) Iterator to free out each queued part
-: cleanEphem We're \"all done\", so flush out any accumulated bits of
+: cleanEphem We're "all done", so flush out any accumulated bits of
  temporarily allocated memory
 
 Mark object storage ephemeral; subclasses will flag storage under their
@@ -23,4 +23,3 @@ Mark object storage ephemeral; subclasses will flag storage under their
 
 
 
-"

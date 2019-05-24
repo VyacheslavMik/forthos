@@ -1,17 +1,17 @@
-"\\                                                                    vandys
-\\ kernel.f
-\\       For kernel source code
-\\
-\\ To be processed by the metacompiler, to generate a new system
-\\
+\                                                                    vandys
+\ kernel.f
+\       For kernel source code
+\
+\ To be processed by the metacompiler, to generate a new system
+\
 
-\\
-\\ The metacompiler uses two vocabularies; meta and target.  The
-\\ meta vocabulary holds definitions used by code running on the
-\\ host, which will not interfere with \"normal\" Forth operations.
-\\ The \"target\" vocabulary defines words like \":\", \";\", \"if\", and
-\\ so forth, which must only be seen by code being metacompiled
-\\ onto the target.
+\
+\ The metacompiler uses two vocabularies; meta and target.  The
+\ meta vocabulary holds definitions used by code running on the
+\ host, which will not interfere with "normal" Forth operations.
+\ The "target" vocabulary defines words like ":", ";", "if", and
+\ so forth, which must only be seen by code being metacompiled
+\ onto the target.
 only
 vocabulary target
 vocabulary meta
@@ -23,14 +23,14 @@ meta definitions also extensions
 
 
 
-\\                                                                    vandys
-\\ Before we start the metacompilation proper, we define any words,
-\\ variables or constants which are used by the metacompilation,
-\\ but are not intended to be part of the resulting image.
-\\
+\                                                                    vandys
+\ Before we start the metacompilation proper, we define any words,
+\ variables or constants which are used by the metacompilation,
+\ but are not intended to be part of the resulting image.
+\
 
-\\ Version control
-1 constant VER          \\ Major/minor versions
+\ Version control
+1 constant VER          \ Major/minor versions
 0 constant EXT
 
 
@@ -48,24 +48,22 @@ meta definitions also extensions
 
 
 
-\\                                                                    vandys
-\\ Constants
+\                                                                    vandys
+\ Constants
 
-$20 constant #compile-only      \\ Compile-only flag
-$40 constant #immediate         \\  ...immediate
-$80 constant #markb             \\  ...flag first byte of name
-4 constant CELLL                \\ # bytes in a cell
-32 constant NBPW                \\ # bits in a cell
-$A constant BASEE               \\ Default radix
-8 constant #VOCS                \\ Depth of vocabulary stack
-3 constant DEFAULT_PRIO         \\ Default scheduling priority
-32 constant AOUT_SIZE           \\ # bytes in a.out header
-1024 CELLL * constant #rstack   \\ # bytes allocated for return stack
-#rstack 2* constant #stack      \\  ...operand stack twice as big
-80 constant #TIBLINE            \\ Size of input line to TIB
-16 constant #HIST               \\ # lines of history kept
-
-
+$20 constant #compile-only      \ Compile-only flag
+$40 constant #immediate         \  ...immediate
+$80 constant #markb             \  ...flag first byte of name
+4 constant CELLL                \ # bytes in a cell
+32 constant NBPW                \ # bits in a cell
+$A constant BASEE               \ Default radix
+8 constant #VOCS                \ Depth of vocabulary stack
+3 constant DEFAULT_PRIO         \ Default scheduling priority
+32 constant AOUT_SIZE           \ # bytes in a.out header
+1024 CELLL * constant #rstack   \ # bytes allocated for return stack
+#rstack 2* constant #stack      \  ...operand stack twice as big
+80 constant #TIBLINE            \ Size of input line to TIB
+16 constant #HIST               \ # lines of history kept
 
 
 
@@ -73,48 +71,50 @@ $A constant BASEE               \\ Default radix
 
 
 
-\\                                                                    vandys
-\\ Memory allocation
-\\
-\\ Our approach here is to put initial data structures down in low
-\\ memory, and target our actual ForthOS system for the base of
-\\ high memory (at 1 meg).
-\\
-\\ at 0x10000 the low memory layout is:
-\\  UPP: Base of user area, (8 cells padding), RPP: Top of return stack
-\\  TIBB: TIB, plus TIB history, (8 cells padding), SPP: Top of opstack
-$10000 constant EM              \\ Start of low memory, uninitialized
-64 CELLL * constant US          \\ Max user area size
-EM US - constant UPP            \\ Start of user area (UP0)
-UPP 8 CELLL * - constant RPP    \\ Start of return stack (RP0)
+
+
+\                                                                    vandys
+\ Memory allocation
+\
+\ Our approach here is to put initial data structures down in low
+\ memory, and target our actual ForthOS system for the base of
+\ high memory (at 1 meg).
+\
+\ at 0x10000 the low memory layout is:
+\  UPP: Base of user area, (8 cells padding), RPP: Top of return stack
+\  TIBB: TIB, plus TIB history, (8 cells padding), SPP: Top of opstack
+$10000 constant EM              \ Start of low memory, uninitialized
+64 CELLL * constant US          \ Max user area size
+EM US - constant UPP            \ Start of user area (UP0)
+UPP 8 CELLL * - constant RPP    \ Start of return stack (RP0)
 #HIST 1+ #TIBLINE *   #TIBLINE +
-   constant TIBS                \\ Size of TIB state (TIB + history)
+   constant TIBS                \ Size of TIB state (TIB + history)
 RPP #rstack -   TIBS -
-    constant TIBB               \\ Terminal input buffer (TIB)
-TIBB 8 CELLL * - constant SPP   \\ Start of data stack (SP0)
-\\ (#stack bytes below SPP are used)
+    constant TIBB               \ Terminal input buffer (TIB)
+TIBB 8 CELLL * - constant SPP   \ Start of data stack (SP0)
+\ (#stack bytes below SPP are used)
 
 
 
 
 
-\\                                                                    vandys
-$100000 constant BASEM          \\ Base memory for interpreter
+\                                                                    vandys
+$100000 constant BASEM          \ Base memory for interpreter
 
-\\ Initialize assembly variables
-create _USER 4 CELLL * ,        \\ First user variable offset
-variable base_mem               \\ First location of target image
+\ Initialize assembly variables
+create _USER 4 CELLL * ,        \ First user variable offset
+variable base_mem               \ First location of target image
 
-\\ These get patched as the target's routines are defined
+\ These get patched as the target's routines are defined
 variable _branch   variable _?branch   variable _(do)   variable _(loop)
 variable _doLIT   variable _doUSER   variable _forth   variable cold1
 variable _exit   variable _doLIST   variable _doVAR   variable _doCONST
-variable _(abort\")   variable _(?do)   variable _(.\")   variable _(c\")
+variable _(abort")   variable _(?do)   variable _(.")   variable _(c")
 variable _up   variable tnumber   variable _context   variable _current
 variable _doVOC   variable _(+loop)   variable _'rdwt
 variable _fence
 
-\\ Fields back-patched once the image is fully compiled
+\ Fields back-patched once the image is fully compiled
 variable textlen   variable entryptr1   variable entryptr2
 
 
@@ -123,11 +123,11 @@ variable textlen   variable entryptr1   variable entryptr2
 
 
 
-\\                                                                    vandys
-\\ This is used to reference the patched pointers, to catch
-\\ cases where a reference is made before the needed routine
-\\ is defined.
-: _@   @ dup 0= abort\" bad ordering\"   ;
+\                                                                    vandys
+\ This is used to reference the patched pointers, to catch
+\ cases where a reference is made before the needed routine
+\ is defined.
+: _@   @ dup 0= abort" bad ordering"   ;
 
 
 
@@ -148,24 +148,24 @@ variable textlen   variable entryptr1   variable entryptr2
 
 
 
-\\                                                                    vandys
-\\ Once we start using the \"target\" vocabulary, we won't have
-\\ access to our regular vocabulary words.  We create these words
-\\ to provide search order control of the host compiler which will
-\\ work even when words like \"only\" have their target definition
-\\ active.
+\                                                                    vandys
+\ Once we start using the "target" vocabulary, we won't have
+\ access to our regular vocabulary words.  We create these words
+\ to provide search order control of the host compiler which will
+\ work even when words like "only" have their target definition
+\ active.
 : forth->forth   only    ;
-\\  ( forth forth -> forth )
+\  ( forth forth -> forth )
 : meta->meta   only meta definitions also extensions   ;
-\\  ( extensions meta forth -> meta )
+\  ( extensions meta forth -> meta )
 : target->target   meta->meta target definitions   ;
-\\  ( target meta forth -> target )
+\  ( target meta forth -> target )
 : meta->target   target->target extensions   ;
-\\  ( extensions meta forth -> target )
+\  ( extensions meta forth -> target )
 : assembler->target   meta->target assembler   ;
-\\  ( assembler meta forth -> target )
+\  ( assembler meta forth -> target )
 : target->meta   meta->meta target   ;
-\\  ( target meta forth -> meta )
+\  ( target meta forth -> meta )
 
 
 
@@ -173,20 +173,20 @@ variable textlen   variable entryptr1   variable entryptr2
 
 
 
-\\                                                                    vandys
-\\ Record of assembly code relocations (which are not word aligned)
+\                                                                    vandys
+\ Record of assembly code relocations (which are not word aligned)
 8 constant #max_asm_reloc
 create asm_reloc 8 cells allot
 create #asm_reloc 0 ,
 : add_reloc ( a -- )
- #asm_reloc @ dup #max_asm_reloc >= abort\" relocs\"
+ #asm_reloc @ dup #max_asm_reloc >= abort" relocs"
  cells asm_reloc + !   1 #asm_reloc +! ;
-\\ How far from the address we search for the unaligned reloc reference
+\ How far from the address we search for the unaligned reloc reference
 8 constant #asm_fuzz
 : (asm_reloc) ( l h a -- ) #asm_fuzz over + 1+ swap do
   2dup i @ -rot within if drop i @ swap - BASEM + i !
    unloop exit then
- loop 1 abort\" reloc not found\" ;
+ loop 1 abort" reloc not found" ;
 : asm_relocs ( l h -- )
  #asm_reloc @ 0 do 2dup i cells asm_reloc + @ (asm_reloc) loop 2drop ;
 
@@ -198,24 +198,24 @@ create #asm_reloc 0 ,
 
 
 
-\\                                                                    vandys
-\\ relocate                      ( l h -- )
-\\                               Relocate all references in range to BASEM
+\                                                                    vandys
+\ relocate                      ( l h -- )
+\                               Relocate all references in range to BASEM
 1 cells constant #cell
 : relocate
- 2dup asm_relocs #asm_reloc @ . .\"   assembly relocations\" cr
+ 2dup asm_relocs #asm_reloc @ . ."   assembly relocations" cr
  0 -rot 2dup cell+ swap do
   2dup i @ -rot 1+ within if
    rot 1+ -rot
    over i @ swap - BASEM + i !
   then
  #cell +loop
- 2drop . .\"  relocations\" cr
+ 2drop . ."  relocations" cr
 ;
 
-\\ write_image                   ( a u n -- )
-\\                               Write image at \"a\" starting at block \"u\"
-\\                                for \"n\" blocks.
+\ write_image                   ( a u n -- )
+\                               Write image at "a" starting at block "u"
+\                                for "n" blocks.
 : write_image 0 do 2dup block BLKSIZ move update 1+ swap BLKSIZ + swap
  loop 2drop   sync ;
 
@@ -223,20 +223,20 @@ create #asm_reloc 0 ,
 
 
 
-\\                                                                    vandys
-\\ Format of dictionary entries:
-\\
-\\       Code address            32 bits
-\\       Link to previous entry  32 bits
-\\       Name length + flags     8 bits (high bit always set)
-\\       Name                    (length bytes)
-\\       padding                 (to CELLL boundary)
-\\ then:
-\\       Assembly code           (for CODE word)
-\\ or:
-\\       call DOLST              (for COLON word)
-\\       .long w1,w2,...         (pointers to other words)
-\\
+\                                                                    vandys
+\ Format of dictionary entries:
+\
+\       Code address            32 bits
+\       Link to previous entry  32 bits
+\       Name length + flags     8 bits (high bit always set)
+\       Name                    (length bytes)
+\       padding                 (to CELLL boundary)
+\ then:
+\       Assembly code           (for CODE word)
+\ or:
+\       call DOLST              (for COLON word)
+\       .long w1,w2,...         (pointers to other words)
+\
 
 
 
@@ -248,8 +248,8 @@ create #asm_reloc 0 ,
 
 
 
-\\                                                                    vandys
-\\ Convert between the different addresses
+\                                                                    vandys
+\ Convert between the different addresses
 : nfa>cfa cell- cell- ;
 : nfa>lfa cell- ;
 : cfa>nfa cell+ cell+ ;
@@ -258,13 +258,13 @@ create #asm_reloc 0 ,
 : lfa>nfa cell+ ;
 : ca>nfa  begin   1-   dup c@ $80 and   until   ;
 
-\\ (same?)               ( a1 a2 u -- <bool> )
-\\                       Tell if range of bytes is equal
+\ (same?)               ( a1 a2 u -- <bool> )
+\                       Tell if range of bytes is equal
 : (same?) 0 do 2dup c@ swap c@ - if unloop 2drop false exit then
  1+ swap 1+ loop 2drop true ;
 
-\\ same?                 ( a1 a2 -- bool )
-\\                       Compare dictionary entries
+\ same?                 ( a1 a2 -- bool )
+\                       Compare dictionary entries
 : same? count $1F and >r swap count $1F and dup r> - if
   drop 2drop false exit then
  (same?) ;
@@ -273,23 +273,23 @@ create #asm_reloc 0 ,
 
 
 
-\\                                                                    vandys
-\\ Pointer to NFA of most recent entry
+\                                                                    vandys
+\ Pointer to NFA of most recent entry
 create last 0 ,
 : lastcode   last @   nfa>cfa @   ;
 
-\\ find                  ( a va -- ca na | a F )
-\\                       Look up entry in indicated dictionary
+\ find                  ( a va -- ca na | a F )
+\                       Look up entry in indicated dictionary
 : find
- begin   @ ?dup   while                 \\ Pick up next entry link
-  2dup same?   if                       \\ Compare to target string
+ begin   @ ?dup   while                 \ Pick up next entry link
+  2dup same?   if                       \ Compare to target string
    nip   dup nfa>cfa @ swap   exit
-  then                                  \\ Found entry; return CA/NFA
-  nfa>lfa                               \\ Prepare to advance to next
- repeat   false   ;                     \\ Return failure with addr
+  then                                  \ Found entry; return CA/NFA
+  nfa>lfa                               \ Prepare to advance to next
+ repeat   false   ;                     \ Return failure with addr
 
-\\ name?                 ( a -- ca na | a F )
-\\                       Look up entry across dictionary search list
+\ name?                 ( a -- ca na | a F )
+\                       Look up entry across dictionary search list
 : name?
  _context _@ swap   begin   over @ ?dup   while
   find   ?dup if   rot drop exit   then
@@ -298,22 +298,22 @@ create last 0 ,
 
 
 
-\\                                                                    vandys
-\\ \">here       ( b u -- a )
-\\                       Convert pointer to counted string at here
-: \">here   dup here c!   here 1+ swap   move here   ;
+\                                                                    vandys
+\ ">here       ( b u -- a )
+\                       Convert pointer to counted string at here
+: ">here   dup here c!   here 1+ swap   move here   ;
 
-\\ meta-'                ( -- a )
-\\                       Look up an entry in our target dictionary,
-\\                        return CA
+\ meta-'                ( -- a )
+\                       Look up an entry in our target dictionary,
+\                        return CA
 : meta-'
- bl parse \">here                \\ Get next word from input
- name? 0= if                    \\ Look up
-  count type abort then         \\ Not known
- \\ CA is left on stack
+ bl parse ">here                \ Get next word from input
+ name? 0= if                    \ Look up
+  count type abort then         \ Not known
+ \ CA is left on stack
 ;
 
-\\ Parse word from input into dictionary, advancing \"here\"
+\ Parse word from input into dictionary, advancing "here"
 : token
  bl parse   31 min dup >r here pack$   r> 1+ allot align   ;
 
@@ -323,41 +323,41 @@ create last 0 ,
 
 
 
-\\                                                                    vandys
-\\ (compf)               ( n -- )
-\\                       OR in a bit in last entry's attributes
+\                                                                    vandys
+\ (compf)               ( n -- )
+\                       OR in a bit in last entry's attributes
 : (compf)   last @ dup c@ rot or swap c! ;
 
-\\ (create)                      ( -- )
-\\                               Create a word, leaving caller to
-\\                                add appropriate code body
-\\ In the metacompiler, there is no \"overt\", therefore the entry
-\\  is placed on the search chain immediately.  Yes, this limits
-\\  the ability of a word to use a previous instance of the same
-\\  word.
+\ (create)                      ( -- )
+\                               Create a word, leaving caller to
+\                                add appropriate code body
+\ In the metacompiler, there is no "overt", therefore the entry
+\  is placed on the search chain immediately.  Yes, this limits
+\  the ability of a word to use a previous instance of the same
+\  word.
 : (create)
- align here 0 ,                 \\ CFA to be filled in
- _current _@ @ @ ,              \\ Point to words in definitions dict
- here last !                    \\ Link onto chain
- here   _current _@ @   !       \\ Add to definitions dict
- token   count space type       \\ Build name, trace output
- #markb (compf)                 \\ 1st byte with high bit set
- here swap !                    \\ Point CFA to body
+ align here 0 ,                 \ CFA to be filled in
+ _current _@ @ @ ,              \ Point to words in definitions dict
+ here last !                    \ Link onto chain
+ here   _current _@ @   !       \ Add to definitions dict
+ token   count space type       \ Build name, trace output
+ #markb (compf)                 \ 1st byte with high bit set
+ here swap !                    \ Point CFA to body
 ;
 
 
 
 
-\\                                                                    vandys
-\\ meta-words                    ( -- )
-\\                               Dump words in target vocabulary
-: meta-words   _context _@ @    \\ First vocab in search order
+\                                                                    vandys
+\ meta-words                    ( -- )
+\                               Dump words in target vocabulary
+: meta-words   _context _@ @    \ First vocab in search order
   begin   @ ?dup   while
      space   dup .id   nfa>lfa
   repeat   ;
 
-\\ Define a code word
-\\ Leverage our (create) word, then set the assembler in motion
+\ Define a code word
+\ Leverage our (create) word, then set the assembler in motion
 meta->meta assembler
 ( assembler meta forth -> meta )
 
@@ -366,28 +366,28 @@ meta->meta assembler
 meta->meta
 ( extensions meta forth -> meta )
 
-\\ Define a colon definition, but don't build the body
+\ Define a colon definition, but don't build the body
 : (:)   (create) _doLIST _@ call,   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ Compile a user variable header
+\                                                                    vandys
+\ Compile a user variable header
 : user   (:) _doUSER _@ , _USER @ , CELLL _USER +!   ;
 
-\\ constant/             ( n -- )
-\\                       Compile a string constant padded to length
+\ constant/             ( n -- )
+\                       Compile a string constant padded to length
 : constant/   [char] / parse   dup c,   here swap move   1- allot   ;
 
-\\ Record where to back-patch end of memory image
+\ Record where to back-patch end of memory image
 variable loadend_ptr
 
-\\ Location of prototype user area
+\ Location of prototype user area
 variable user0
 
-\\ Size of user area
+\ Size of user area
 variable usize
 
 
@@ -398,48 +398,48 @@ variable usize
 
 
 
-\\                                                                    vandys
-\\ fixups       Patch values known after metacompilation
+\                                                                    vandys
+\ fixups       Patch values known after metacompilation
 : fixups
- \\ Align size to 4k boundary
+ \ Align size to 4k boundary
  here base_mem @ -   $1000 mod   $1000 swap -   allot
 
- \\ Summarize size
- .\" Image size:\" here base_mem @ - . .\"  bytes\" cr
+ \ Summarize size
+ ." Image size:" here base_mem @ - . ."  bytes" cr
 
- \\ Fix up the prototype USER area
- 'ttyops @ user0 @ 6 cells + !          \\ Host TTY operations
- tnumber _@ user0 @ 20 cells + !        \\ 'number
- here user0 @ 34 cells + !              \\ cp
- last @ user0 @ 35 cells + !            \\ last
+ \ Fix up the prototype USER area
+ 'ttyops @ user0 @ 6 cells + !          \ Host TTY operations
+ tnumber _@ user0 @ 20 cells + !        \ 'number
+ here user0 @ 34 cells + !              \ cp
+ last @ user0 @ 35 cells + !            \ last
 
- \\ Patch disk I/O to simulator
+ \ Patch disk I/O to simulator
  'rdwt @ _'rdwt _@ !
 
- \\ Patch \"forth\" vocabulary word for its runtime behavior
+ \ Patch "forth" vocabulary word for its runtime behavior
  _doLIST _@   _forth _@   call!
  _doVOC _@   _forth _@ cell+ cell+   !
 
 
 
 
-\\                                                                    vandys
- \\ Patch end-of-memory pointer into Multiboot header
- \\ (both load end and BSS end)
+\                                                                    vandys
+ \ Patch end-of-memory pointer into Multiboot header
+ \ (both load end and BSS end)
  here loadend_ptr @ !
  here loadend_ptr @ cell+ !
 
- \\ Fix fence
+ \ Fix fence
  here _fence _@ !
 
- \\ Patch a.out header for text size
+ \ Patch a.out header for text size
  here base_mem @ -   AOUT_SIZE -   textlen @ !
 ;
 
-\\ compile-only          Set compile-only flag of target word
+\ compile-only          Set compile-only flag of target word
 : compile-only #compile-only (compf) ;
 
-\\ immediate             Set immediate execution flag of target word
+\ immediate             Set immediate execution flag of target word
 : immediate #immediate (compf) ;
 
 
@@ -448,63 +448,63 @@ variable usize
 
 
 
-\\                                                                    vandys
-\\ ====================================================================
-\\ What follows are values and run-time routines needed by metacompiled
-\\ source.  In \"normal\" forth, you are free to create words, and then
-\\ use those words to create further words and/or data structures.  In
-\\ the metacompiled world, words compiled into the target are not
-\\ executable by the host.  Thus, we factor out those functions to
-\\ this section, to make their functionality available to the
-\\ host metacompiler.
-\\ ====================================================================
+\                                                                    vandys
+\ ====================================================================
+\ What follows are values and run-time routines needed by metacompiled
+\ source.  In "normal" forth, you are free to create words, and then
+\ use those words to create further words and/or data structures.  In
+\ the metacompiled world, words compiled into the target are not
+\ executable by the host.  Thus, we factor out those functions to
+\ this section, to make their functionality available to the
+\ host metacompiler.
+\ ====================================================================
 
-\\ Source code to support block.f
-4096 constant BLKSIZ            \\ Byte of data in a block
-80 constant BLKCOLS             \\ Columns in a screen
+\ Source code to support block.f
+4096 constant BLKSIZ            \ Byte of data in a block
+80 constant BLKCOLS             \ Columns in a screen
 BLKSIZ 2/ BLKCOLS /
-    constant BLKROWS            \\ Rows in a screen (not shadow)
-32 constant #BUFS               \\ # bufs held in memory--at least one
+    constant BLKROWS            \ Rows in a screen (not shadow)
+32 constant #BUFS               \ # bufs held in memory--at least one
 3 CELLL * BLKSIZ +
-    constant BUFSIZ             \\ Size of in-core block buffer
+    constant BUFSIZ             \ Size of in-core block buffer
 
 
 
 
 
 
-\\                                                                    vandys
-\\ Source code to support multi.f
-4 constant NPRIO            \\ # distinct task priorities (0..NPRIO-1)
-8192 constant #codes        \\ Size of private code space
+\                                                                    vandys
+\ Source code to support multi.f
+4 constant NPRIO            \ # distinct task priorities (0..NPRIO-1)
+8192 constant #codes        \ Size of private code space
 
-\\ Source code to support cons.f
-4 constant NSCREEN              \\ # virtual screens supported
-80 constant CONS_COLS           \\ Columns on display
-25 constant CONS_ROWS           \\ Rows on display
+\ Source code to support cons.f
+4 constant NSCREEN              \ # virtual screens supported
+80 constant CONS_COLS           \ Columns on display
+25 constant CONS_ROWS           \ Rows on display
 CONS_COLS CONS_ROWS *
-        constant RAM_SIZE       \\ Words on display
+        constant RAM_SIZE       \ Words on display
 RAM_SIZE 2 *
-        constant RAM_BYTES      \\ Bytes on display
+        constant RAM_BYTES      \ Bytes on display
 6 cells RAM_BYTES +
-        constant SCRMEM         \\ # bytes of state per screen
-\\ Initialize from string rather than individual c,'s
+        constant SCRMEM         \ # bytes of state per screen
+\ Initialize from string rather than individual c,'s
 : ,chars   bl parse drop begin   dup c@ bl <>   while
         dup c@ c,   1+   repeat   drop   ;
-\\ Initialize a sequence of $80 char values
+\ Initialize a sequence of $80 char values
 : pad80 ( u -- )   0 do   $80 c,   loop   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ Source code to support ide.f
+\                                                                    vandys
+\ Source code to support ide.f
 512 constant SECSIZ
 SECSIZ 2/ constant SECWORDS
 BLKSIZ SECSIZ / constant BLKSECS
 
-\\ Constants for structures
+\ Constants for structures
 64 constant (struct_max)
 
 
@@ -523,22 +523,22 @@ BLKSIZ SECSIZ / constant BLKSECS
 
 
 
-\\                                                                    vandys
-\\ ====================================================================
-\\ Now we start defining words which would interfere with
-\\ normal Forth compilation.  We will place them in the \"target\"
-\\ vocabulary, which is not a part of our own search path.
-\\ ====================================================================
+\                                                                    vandys
+\ ====================================================================
+\ Now we start defining words which would interfere with
+\ normal Forth compilation.  We will place them in the "target"
+\ vocabulary, which is not a part of our own search path.
+\ ====================================================================
 meta->target
 ( extensions meta forth -> target )
 
-\\ Create a variable without any storage allocated
+\ Create a variable without any storage allocated
 : create (:) _doVAR _@ , ;
 
-\\ Variable
+\ Variable
 : variable [ target ] create [ extensions ] 0 , ;
 
-\\ Constant
+\ Constant
 : constant (:) _doCONST _@ , , ;
 
 
@@ -548,10 +548,10 @@ meta->target
 
 
 
-\\
-\\ These are host-executed routines which generate code onto the
-\\ target, mostly for control structures.
-\\
+\
+\ These are host-executed routines which generate code onto the
+\ target, mostly for control structures.
+\
 : if   _?branch _@ , here 0 ,   ;
 : else   _branch _@ , here 0 ,   swap here swap !   ;
 : then   here swap !   ;
@@ -573,14 +573,14 @@ meta->target
 
 
 
-\\                                                                    vandys
-\\ Semicolon compiles in the termination of the definition, as well
-\\  as switching the host compiler back to interpretive state.
+\                                                                    vandys
+\ Semicolon compiles in the termination of the definition, as well
+\  as switching the host compiler back to interpretive state.
 : ;   _exit _@ ,   [compile] [   ;
-: unsupported   1 abort\" Unsupported operation\"   ;
-: abort\"   _(abort\") _@ ,   $,\"   ;
-: .\"   _(.\") _@ ,   $,\"   ;
-: c\"   _(c\") _@ ,   $,\"   ;
+: unsupported   1 abort" Unsupported operation"   ;
+: abort"   _(abort") _@ ,   $,"   ;
+: ."   _(.") _@ ,   $,"   ;
+: c"   _(c") _@ ,   $,"   ;
 : [']   meta-'   _doLIT _@ ,   ,   ;
 : [compile]   meta-' ,   ;
 : [char]   char   _doLIT _@ ,  ,   ;
@@ -598,16 +598,16 @@ meta->target
 
 
 
-\\                                                                    vandys
-\\ specTab
-\\                       Table of special words in metacompilation
-\\                       These are defined in \"meta\", but located here
-\\                        among target definitions because it references
-\\                        some target routines.
+\                                                                    vandys
+\ specTab
+\                       Table of special words in metacompilation
+\                       These are defined in "meta", but located here
+\                        among target definitions because it references
+\                        some target routines.
 meta->meta
 ( extensions meta forth -> meta )
-16 dup constant #specName               \\ Size of name
-cell+ constant #specEntry               \\ Size of each entry
+16 dup constant #specName               \ Size of name
+cell+ constant #specEntry               \ Size of each entry
 create specTab 0
 target->meta
 ( target meta forth -> meta )
@@ -623,8 +623,8 @@ target->meta
 
 
 
-\\                                                                    vandys
-#specName constant/ if/ ' if , 1+       \\ Target specific words
+\                                                                    vandys
+#specName constant/ if/ ' if , 1+       \ Target specific words
 #specName constant/ else/ ' else , 1+
 #specName constant/ then/ ' then , 1+
 #specName constant/ begin/ ' begin , 1+
@@ -637,9 +637,9 @@ target->meta
 #specName constant/ loop/ ' loop , 1+
 #specName constant/ +loop/ ' +loop , 1+
 #specName constant/ ;/ ' ; , 1+
-#specName constant/ abort\"/ ' abort\" , 1+
-#specName constant/ .\"/ ' .\" , 1+
-#specName constant/ c\"/ ' c\" , 1+
+#specName constant/ abort"/ ' abort" , 1+
+#specName constant/ ."/ ' ." , 1+
+#specName constant/ c"/ ' c" , 1+
 #specName constant/ [']/ ' ['] , 1+
 #specName constant/ [compile]/ ' [compile] , 1+
 #specName constant/ [char]/ ' [char] , 1+
@@ -648,19 +648,19 @@ target->meta
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 meta->meta
 ( extensions meta forth -> meta )
-#specName constant/ \\/ ' \\ , 1+         \\ Hook to our host words
+#specName constant/ \/ ' \ , 1+         \ Hook to our host words
 #specName constant/ (/ ' ( , 1+
-constant #specTab                       \\ # entries in specTab
+constant #specTab                       \ # entries in specTab
 
-\\ >specName             ( n -- a )
-\\                       Return name for the given index in specTab
+\ >specName             ( n -- a )
+\                       Return name for the given index in specTab
 : >specName #specEntry * specTab + ;
 
-\\ >specFunc             ( n -- a )
-\\                       Return function pointer from index in specTab
+\ >specFunc             ( n -- a )
+\                       Return function pointer from index in specTab
 : >specFunc >specName #specName + @ ;
 
 
@@ -673,11 +673,11 @@ constant #specTab                       \\ # entries in specTab
 
 
 
-\\                                                                    vandys
-\\ special?              ( a -- a F | vector T )
-\\                       Tell if the word is special
-\\                       Returns execution pointer if it is
-\\                       TBD: think about leveraging a Forth vocab
+\                                                                    vandys
+\ special?              ( a -- a F | vector T )
+\                       Tell if the word is special
+\                       Returns execution pointer if it is
+\                       TBD: think about leveraging a Forth vocab
 : special?
   #specTab 0 do
    dup i >specName same? if
@@ -698,24 +698,24 @@ constant #specTab                       \\ # entries in specTab
 
 
 
-\\                                                                    vandys
-\\ $immediate ( ca -- )
-\\       Tell if the given routine has a #immediate flag
+\                                                                    vandys
+\ $immediate ( ca -- )
+\       Tell if the given routine has a #immediate flag
 : $immediate   ca>nfa c@ #immediate and   ;
 
-\\ $metacompile ( a -- )
-\\       Our 'eval hook for metacompilation
+\ $metacompile ( a -- )
+\       Our 'eval hook for metacompilation
 : $metacompile
-   special? if                  \\ Special execution words
+   special? if                  \ Special execution words
       execute exit   then
-   name? if                     \\ Found in target dictionary?
-      dup $immediate abort\" immediate\"
+   name? if                     \ Found in target dictionary?
+      dup $immediate abort" immediate"
       , exit   then
-   dup number? if               \\ Literal
+   dup number? if               \ Literal
       _doLIT _@ ,   ,
       drop exit    then
-   count type                   \\ Otherwise error
-   1 abort\" undefined\"
+   count type                   \ Otherwise error
+   1 abort" undefined"
 ;
 
 
@@ -723,14 +723,14 @@ constant #specTab                       \\ # entries in specTab
 
 
 
-\\                                                                    vandys
-\\ Ok, the special? support is safely compiled into meta, back to
-\\ definitions in target.
+\                                                                    vandys
+\ Ok, the special? support is safely compiled into meta, back to
+\ definitions in target.
 meta->target
 ( extensions meta forth -> target )
 
-\\ Start compiling a target word.  We have a custom 'eval vector
-\\  to generate code referencing the target dictionary.
+\ Start compiling a target word.  We have a custom 'eval vector
+\  to generate code referencing the target dictionary.
 : :   (:)   ['] $metacompile 'eval !   ;
 
 
@@ -748,45 +748,45 @@ meta->target
 
 
 
-\\                                                                    vandys
-\\ Target vocabulary handling is achieved by pre-defining the supported
-\\  vocabularies in the \"target\" vocabulary, and attaching their compilation
-\\  address as they are defined in the target source.
+\                                                                    vandys
+\ Target vocabulary handling is achieved by pre-defining the supported
+\  vocabularies in the "target" vocabulary, and attaching their compilation
+\  address as they are defined in the target source.
 
-\\ Create a host record for a vocabulary.  Invoking it causes its
-\\  value to become the \"context\".
+\ Create a host record for a vocabulary.  Invoking it causes its
+\  value to become the "context".
 meta->meta
 ( extensions meta forth -> meta )
 : defVoc   create   0 ,   does>   _@ _context _@ !   ;
 
-\\ Convert from CA to storage location in word
-\\ This applies to both vocabularies as well as normal variables.
-\\ Note: host implementation specific
+\ Convert from CA to storage location in word
+\ This applies to both vocabularies as well as normal variables.
+\ Note: host implementation specific
 : >varBody ( ca -- a )   3 cells +   ;
 
-\\ Register the \"last\" definition as a named vocabulary
+\ Register the "last" definition as a named vocabulary
 : regVoc   last @   dup nfa>cfa @ >varBody   swap
  [ ' target >varBody ] literal
- find   0= abort\" bad vocabulary\"   >varBody !   ;
+ find   0= abort" bad vocabulary"   >varBody !   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ Return to placing definitions in \"target\"
+\                                                                    vandys
+\ Return to placing definitions in "target"
 meta->target
 ( extensions meta forth -> target )
 
-\\ These are the predefined vocabularies, placed in their own
-\\  private vocabulary list
+\ These are the predefined vocabularies, placed in their own
+\  private vocabulary list
 defVoc forth   defVoc extensions   defVoc assembler
 defVoc editor   defVoc os   defVoc drivers
 defVoc initialize   defVoc fs
 
-\\ Target creation of a vocabulary; we both create the vocabulary
-\\ in the memory image as well as connect it with the host's record
-\\ of this vocabulary.
+\ Target creation of a vocabulary; we both create the vocabulary
+\ in the memory image as well as connect it with the host's record
+\ of this vocabulary.
 : vocabulary
  (:)   _doVOC _@ ,
  here   0 ,   _current _@ cell+   dup @ ,   !   regVoc   ;
@@ -798,8 +798,8 @@ defVoc initialize   defVoc fs
 
 
 
-\\                                                                    vandys
-\\ Emulate manipulation of the vocabulary environment
+\                                                                    vandys
+\ Emulate manipulation of the vocabulary environment
 : also   _context _@   dup cell+   #VOCS cells   move   ;
 : definitions   _context _@ @   _current _@ !   ;
 : only   _context _@ cell+ #VOCS cells erase
@@ -823,18 +823,18 @@ defVoc initialize   defVoc fs
 
 
 
-\\
-\\ ====================================================================
-\\ Now we start generating the memory image.  We record the starting
-\\ point so that we have a memory range to scan and relocate after
-\\ generating all the code.
-\\ ====================================================================
-\\
+\
+\ ====================================================================
+\ Now we start generating the memory image.  We record the starting
+\ point so that we have a memory range to scan and relocate after
+\ generating all the code.
+\ ====================================================================
+\
 target->target
 ( target meta forth -> target )
-\\ When the assembler is active, the search order will become
-\\ assembler, meta, forth.  We require that the meta vocabulary
-\\ continue to be visible even when the assembler is active.
+\ When the assembler is active, the search order will become
+\ assembler, meta, forth.  We require that the meta vocabulary
+\ continue to be visible even when the assembler is active.
 
 
 
@@ -848,22 +848,20 @@ target->target
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
         align
 here base_mem !
 
-\\ Main entry points and COLD start data
+\ Main entry points and COLD start data
 
-\\ First build an a.out-ish header so we can fool Multiboot
-\\ loaders into loading us.  This comes to AOUT_SIZE (32) bytes.
-        $10B ,          \\ 0413 executable
-here textlen !   0 ,    \\ Back-patch with \"text\" length
-        0 , 0 ,         \\ 0-length \"data\" and \"bss\"
-        0 ,             \\ No symbols!
-here entryptr1 !   0 ,  \\ Entry point
-        0 , 0 ,         \\ Text/data relocation, ignore
-
-
+\ First build an a.out-ish header so we can fool Multiboot
+\ loaders into loading us.  This comes to AOUT_SIZE (32) bytes.
+        $10B ,          \ 0413 executable
+here textlen !   0 ,    \ Back-patch with "text" length
+        0 , 0 ,         \ 0-length "data" and "bss"
+        0 ,             \ No symbols!
+here entryptr1 !   0 ,  \ Entry point
+        0 , 0 ,         \ Text/data relocation, ignore
 
 
 
@@ -873,32 +871,34 @@ here entryptr1 !   0 ,  \\ Entry point
 
 
 
-\\                                                                    vandys
-\\ Multiboot header
-\\ MULTIBOOT_MAGIC
-meta->target            \\ Suspend assembler while we build the header
+
+
+\                                                                    vandys
+\ Multiboot header
+\ MULTIBOOT_MAGIC
+meta->target            \ Suspend assembler while we build the header
 ( forth meta forth -> target )
 here $1BADB002 dup ,
-\\ MULTIBOOT_PAGE_ALIGN + MULTIBOOT_AOUT_KLUDGE + MULTIBOOT_MEMORY_INFO
+\ MULTIBOOT_PAGE_ALIGN + MULTIBOOT_AOUT_KLUDGE + MULTIBOOT_MEMORY_INFO
 1 2 or $10000 or dup ,
-\\ Multiboot checksum
+\ Multiboot checksum
 + 0 not swap - 1+ ,
-\\ Pointer back to header
+\ Pointer back to header
 ,
-\\ Load address
+\ Load address
 base_mem @ ,
-\\ Load end
+\ Load end
 here loadend_ptr ! 0 ,
-\\ BSS end
+\ BSS end
 0 ,
-\\ Program entry point
+\ Program entry point
 here entryptr2 !   0 ,
 
 
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 here cold1 ! 0 ,
 assembler->target ASM-INIT
 ( assembler meta forth -> target )
@@ -923,65 +923,65 @@ target->target
 
 
 
-\\                                                                    vandys
-\\ COLD start moves the following to USER variables
-\\ MUST BE IN SAME ORDER AS USER VARIABLES
+\                                                                    vandys
+\ COLD start moves the following to USER variables
+\ MUST BE IN SAME ORDER AS USER VARIABLES
 
         align
 here user0 !
-        0 , 0 , 0 , 0 ,         \\ reserved space in user area
-        SPP ,                   \\ SP0
-        RPP ,                   \\ RP0
-        0 ,                     \\ 'TTYOPS
-        0 ,                     \\ 'EXPECT
-        0 ,                     \\ 'TAP
-        0 ,                     \\ 'ECHO
-        0 ,                     \\ 'PROMPT
-        BASEE ,                 \\ BASE
-        0 ,                     \\ tmp
-        0 ,                     \\ SPAN
-        0 ,                     \\ >IN
-        0 ,                     \\ #TIB
+        0 , 0 , 0 , 0 ,         \ reserved space in user area
+        SPP ,                   \ SP0
+        RPP ,                   \ RP0
+        0 ,                     \ 'TTYOPS
+        0 ,                     \ 'EXPECT
+        0 ,                     \ 'TAP
+        0 ,                     \ 'ECHO
+        0 ,                     \ 'PROMPT
+        BASEE ,                 \ BASE
+        0 ,                     \ tmp
+        0 ,                     \ SPAN
+        0 ,                     \ >IN
+        0 ,                     \ #TIB
 
 
 
 
 
 
-\\                                                                    vandys
-        TIBB ,                  \\ TIB
-        TIBB ,                  \\ TIB0
-        0 ,                     \\ CSP
-        0 ,                     \\ 'EVAL
-        0 ,                     \\ 'NUMBER
-        0 ,                     \\ HLD
-        0 ,                     \\ HANDLER
+\                                                                    vandys
+        TIBB ,                  \ TIB
+        TIBB ,                  \ TIB0
+        0 ,                     \ CSP
+        0 ,                     \ 'EVAL
+        0 ,                     \ 'NUMBER
+        0 ,                     \ HLD
+        0 ,                     \ HANDLER
 here _context !
-        0 ,                     \\ CONTEXT pointer
-        0 , 0 , 0 , 0 ,         \\ Vocabulary stack--#VOCS entries
+        0 ,                     \ CONTEXT pointer
+        0 , 0 , 0 , 0 ,         \ Vocabulary stack--#VOCS entries
         0 , 0 , 0 , 0 ,
 here _current !
-        0 ,                     \\ CURRENT pointer
-        0 ,                     \\  Vocabulary link pointer
-        0 ,                     \\ CP
-        0 ,                     \\ LAST
-        0 ,                     \\ OFFSET
-        0 ,                     \\ TTCHAN
-        0 ,                     \\ BLK
+        0 ,                     \ CURRENT pointer
+        0 ,                     \  Vocabulary link pointer
+        0 ,                     \ CP
+        0 ,                     \ LAST
+        0 ,                     \ OFFSET
+        0 ,                     \ TTCHAN
+        0 ,                     \ BLK
 
 
 
 
 
-\\                                                                    vandys
-        DEFAULT_PRIO ,          \\ PRIO
-        0 ,                     \\ Buffered typing from \"(key?)\"
-        0 ,                     \\ TGENHOOK
-        0 ,                     \\ GENSUSP
-        0 , 0 ,                 \\ TTRAP, abortTrap
-        0 , 0 ,                 \\ CWD, ROOT
-        0 , 0 ,                 \\ tmp1, tmp2
-        0 ,                     \\ (local)
+\                                                                    vandys
+        DEFAULT_PRIO ,          \ PRIO
+        0 ,                     \ Buffered typing from "(key?)"
+        0 ,                     \ TGENHOOK
+        0 ,                     \ GENSUSP
+        0 , 0 ,                 \ TTRAP, abortTrap
+        0 , 0 ,                 \ CWD, ROOT
+        0 , 0 ,                 \ tmp1, tmp2
+        0 ,                     \ (local)
 here user0 @ - usize !
 
 
@@ -998,36 +998,36 @@ here user0 @ - usize !
 
 
 
-\\                                                                    vandys
-\\ forth ( -- )
-\\               Make FORTH the context vocabulary
-\\ This is really tedious.  To break the circular dependency of where
-\\ a definition goes (this word, \"forth\", goes in the \"forth\" vocabulary,
-\\ which doesn't exist yet, right?), we partially construct the \"forth\"
-\\ vocabulary here, and back-patch doVOC once it's defined.
-here 4 cells + , \\ CFA
-0 ,             \\ LFA
-here last !     \\ NFA, build name by hand, including padding
+\                                                                    vandys
+\ forth ( -- )
+\               Make FORTH the context vocabulary
+\ This is really tedious.  To break the circular dependency of where
+\ a definition goes (this word, "forth", goes in the "forth" vocabulary,
+\ which doesn't exist yet, right?), we partially construct the "forth"
+\ vocabulary here, and back-patch doVOC once it's defined.
+here 4 cells + , \ CFA
+0 ,             \ LFA
+here last !     \ NFA, build name by hand, including padding
 5 $80 or c,
 char f c,   char o c,   char r c,   char t c,   char h c,
 0 c, 0 c,
-here _forth !   \\ Record location for back-patches
-0 , 0 , 0 ,     \\ CALL, doLIST, doVOC
-                \\ Register us in the vocabulary list
+here _forth !   \ Record location for back-patches
+0 , 0 , 0 ,     \ CALL, doLIST, doVOC
+                \ Register us in the vocabulary list
 here   _current _@ cell+   !
-    last @ ,    \\ We're the only entry in this vocab initially
-    0 ,         \\ List of vocabularies
-regVoc          \\ Register our vocabulary, \"forth\"
+    last @ ,    \ We're the only entry in this vocab initially
+    0 ,         \ List of vocabularies
+regVoc          \ Register our vocabulary, "forth"
 
 
 
 
 
-\\                                                                    vandys
-\\ We can now set our search and definition vocabularies
+\                                                                    vandys
+\ We can now set our search and definition vocabularies
 only
 
-\\ Here's the code to implement a high-level execution
+\ Here's the code to implement a high-level execution
 code doLIST
  here _doLIST !
  ebp esp xchg
@@ -1048,20 +1048,20 @@ code doLIST
 
 
 
-\\                                                                    vandys
-\\ Device dependent I/O
+\                                                                    vandys
+\ Device dependent I/O
 
-\\ BYE           ( -- )
-\\               Exit eForth
+\ BYE           ( -- )
+\               Exit eForth
 code bye
-   \\ First try via keyboard controller
-   \\ $FE # eax mov   $64 byte out#
-   \\ (hangs on my Gateway laptop... Andy 10/30/09)
+   \ First try via keyboard controller
+   \ $FE # eax mov   $64 byte out#
+   \ (hangs on my Gateway laptop... Andy 10/30/09)
 
-   \\ Now attempt shutdown via bad mapping
+   \ Now attempt shutdown via bad mapping
    0 # eax mov   eax cr3 movcr   -1 # eax mov   0 [eax] eax mov
 
-   \\ No joy
+   \ No joy
    next   c;
 
 
@@ -1073,19 +1073,19 @@ code bye
 
 
 
-\\                                                                    vandys
-\\ inb           ( port -- n )
-\\               Do x86 byte inport
+\                                                                    vandys
+\ inb           ( port -- n )
+\               Do x86 byte inport
 code inb
     edx pop   eax eax xor   byte in   eax push   next c;
 
-\\ inw           ( port -- n )
-\\               Do x86 word (2-byte) inport
+\ inw           ( port -- n )
+\               Do x86 word (2-byte) inport
 code inw
     edx pop   eax eax xor   16: in   eax push   next c;
 
-\\ inl           ( port -- n )
-\\               Do x86 longword (4-byte) inport
+\ inl           ( port -- n )
+\               Do x86 longword (4-byte) inport
 code inl
     edx pop   eax eax xor   in   eax push   next c;
 
@@ -1098,19 +1098,19 @@ code inl
 
 
 
-\\                                                                    vandys
-\\ outb          ( n port -- )
-\\               Do x86 byte outport
+\                                                                    vandys
+\ outb          ( n port -- )
+\               Do x86 byte outport
 code outb
     edx pop   eax pop   byte out   next c;
 
-\\ outw          ( n port -- )
-\\               Do x86 word (2-byte) outport
+\ outw          ( n port -- )
+\               Do x86 word (2-byte) outport
 code outw
     edx pop   eax pop   16: out   next c;
 
-\\ outl          ( n port -- )
-\\               Do x86 longword (4-byte) outport
+\ outl          ( n port -- )
+\               Do x86 longword (4-byte) outport
 code outl
     edx pop   eax pop   out   next c;
 
@@ -1123,19 +1123,19 @@ code outl
 
 
 
-\\                                                                    vandys
-\\ The kernel
+\                                                                    vandys
+\ The kernel
 
-\\ doLIT ( -- w )
-\\               Push an inline literal
+\ doLIT ( -- w )
+\               Push an inline literal
 code doLIT
     here _doLIT !
     lods
     eax push
     next c; compile-only
 
-\\ doCONST       ( -- n )
-\\               Runtime for a constant word
+\ doCONST       ( -- n )
+\               Runtime for a constant word
 code doCONST
     here _doCONST !
     0 [esi] push
@@ -1148,23 +1148,23 @@ code doCONST
 
 
 
-\\                                                                    vandys
-\\ ?branch       ( f -- )
-\\               Branch if flag is zero
+\                                                                    vandys
+\ ?branch       ( f -- )
+\               Branch if flag is zero
 code ?branch
     here _?branch !
-    ebx pop             \\ Pop flag
-    ebx ebx or          \\ ?flag = 0
-    1 $ je              \\ Yes, branch
-    CELLL # esi add     \\ Point IP to next cell
+    ebx pop             \ Pop flag
+    ebx ebx or          \ ?flag = 0
+    1 $ je              \ Yes, branch
+    CELLL # esi add     \ Point IP to next cell
     next
 1 $:
-    0 [esi] esi mov     \\ Branch to target
+    0 [esi] esi mov     \ Branch to target
     next
     c; compile-only
 
-\\ branch        ( -- )
-\\               Branch to an inline address
+\ branch        ( -- )
+\               Branch to an inline address
 code branch
     here _branch !
     0 [esi] esi mov
@@ -1173,18 +1173,18 @@ code branch
 
 
 
-\\                                                                    vandys
-\\ execute       ( ca -- )
-\\               Execute the word at ca
+\                                                                    vandys
+\ execute       ( ca -- )
+\               Execute the word at ca
 code execute
     ebx pop
     ebx jmp
     c;
 
-\\ exit  ( -- )
-\\               Terminate a colon definition
-\\               Note: this must be defined before any colon definition
-\\                is compiled.
+\ exit  ( -- )
+\               Terminate a colon definition
+\               Note: this must be defined before any colon definition
+\                is compiled.
 code exit
     here _exit !
     0 [ebp] esi mov
@@ -1198,9 +1198,9 @@ code exit
 
 
 
-\\                                                                    vandys
-\\ (do)  ( n n -- )
-\\               Execution time for do..loop
+\                                                                    vandys
+\ (do)  ( n n -- )
+\               Execution time for do..loop
 code (do)
    here _(do) !
    $C # ebp sub
@@ -1223,9 +1223,9 @@ code (do)
 
 
 
-\\                                                                    vandys
-\\ (?do) ( n n -- )
-\\               Execution time for ?do..loop
+\                                                                    vandys
+\ (?do) ( n n -- )
+\               Execution time for ?do..loop
 code (?do)
     here _(?do) !
     eax pop
@@ -1248,9 +1248,9 @@ code (?do)
 
 
 
-\\                                                                    vandys
-\\ (loop)        ( -- )
-\\               Run time code for double index loop
+\                                                                    vandys
+\ (loop)        ( -- )
+\               Run time code for double index loop
 code (loop)
     here _(loop) !
     4 [ebp] eax mov
@@ -1273,24 +1273,24 @@ code (loop)
 
 
 
-\\                                                                    vandys
-\\ (+loop)       ( -- )
-\\               Run time code for double index loop with increment
+\                                                                    vandys
+\ (+loop)       ( -- )
+\               Run time code for double index loop with increment
 code (+loop)
     here _(+loop) !
     eax pop
-    eax eax or                  \\ Handle negative specially
+    eax eax or                  \ Handle negative specially
     2 $ jl
 
     4 [ebp] eax add
     eax 0 [ebp] cmp
-    1 $ jle                     \\ Increment above limit?
-3 $: eax 4 [ebp] mov            \\ No, update count
-    0 [esi] esi mov             \\  ...branch back again
+    1 $ jle                     \ Increment above limit?
+3 $: eax 4 [ebp] mov            \ No, update count
+    0 [esi] esi mov             \  ...branch back again
     next
 
-1 $: 3 CELLL * # ebp add        \\ Yes, pop three params
-    CELLL # esi add             \\ Continue past branch offset
+1 $: 3 CELLL * # ebp add        \ Yes, pop three params
+    CELLL # esi add             \ Continue past branch offset
     next
 
 
@@ -1298,48 +1298,48 @@ code (+loop)
 
 
 
-\\                                                                    vandys
-\\  ... continuation of (+loop)
+\                                                                    vandys
+\  ... continuation of (+loop)
 2 $: 4 [ebp] eax add
     eax 0 [ebp] cmp
     1 $ jg
     3 $ jmp
 c; compile-only
 
-\\ i             ( -- n)
-\\               Push current loop counter onto operand stack
+\ i             ( -- n)
+\               Push current loop counter onto operand stack
 code i
     4 [ebp] push
     next c; compile-only
 
-\\ !             ( w a -- )
-\\               Pop the data stack to memory
+\ !             ( w a -- )
+\               Pop the data stack to memory
 code !   ebx pop   0 [ebx] pop   next c;
-\\ !+            ( w a -- a' )
-\\               Pop data stack to memory, advancing pointer
+\ !+            ( w a -- a' )
+\               Pop data stack to memory, advancing pointer
 code !+   ebx pop   0 [ebx] pop   CELLL # ebx add   ebx push   next c;
 
 
 
 
 
-\\                                                                    vandys
-\\ @             ( a -- w )
-\\               Push memory location to the data stack
+\                                                                    vandys
+\ @             ( a -- w )
+\               Push memory location to the data stack
 code @
     ebx pop   0 [ebx] push   next c;
 
-\\ @+            ( a -- a+ w )
-\\               Fetch memory, advancing pointer
+\ @+            ( a -- a+ w )
+\               Fetch memory, advancing pointer
 code @+
    eax pop   eax ebx mov   CELLL # eax add   eax push   0 [ebx] push
    next c;
 
-\\ c!            ( c b -- )
-\\               Pop the data stack to byte memory
+\ c!            ( c b -- )
+\               Pop the data stack to byte memory
 code c!   ebx pop   eax pop   al 0 [ebx] mov   next c;
-\\ c!+           ( c b -- b' )
-\\               Pop the data stack to byte memory, advancing pointer
+\ c!+           ( c b -- b' )
+\               Pop the data stack to byte memory, advancing pointer
 code c!+   ebx pop   eax pop   al 0 [ebx] mov   ebx inc   ebx push
    next c;
 
@@ -1348,20 +1348,20 @@ code c!+   ebx pop   eax pop   al 0 [ebx] mov   ebx inc   ebx push
 
 
 
-\\                                                                    vandys
-\\ c@            ( b -- c )
-\\               Push byte memory location to the data stack
+\                                                                    vandys
+\ c@            ( b -- c )
+\               Push byte memory location to the data stack
 code c@
     ebx pop   eax eax xor   0 [ebx] al mov   eax push   next c;
 
-\\ c@+           ( b -- b+ c )
-\\               Push byte memory, advancing pointer
+\ c@+           ( b -- b+ c )
+\               Push byte memory, advancing pointer
 code c@+
    eax pop   eax ebx mov   eax inc   eax push   eax eax xor
    0 [ebx] al mov   eax push   next c;
 
-\\ w!            ( w a -- )
-\\               Pop the data stack to word
+\ w!            ( w a -- )
+\               Pop the data stack to word
 code w!
     ebx pop
     eax pop
@@ -1373,9 +1373,9 @@ code w!
 
 
 
-\\                                                                    vandys
-\\ w@            ( a -- c )
-\\               Push addressed word to the data stack
+\                                                                    vandys
+\ w@            ( a -- c )
+\               Push addressed word to the data stack
 code w@
     ebx pop
     eax eax xor
@@ -1383,14 +1383,14 @@ code w@
     eax push
     next c;
 
-\\ rp@           ( -- a )
-\\               Push the current RP to the data stack
+\ rp@           ( -- a )
+\               Push the current RP to the data stack
 code rp@
     ebp push
     next c;
 
-\\ rp!           ( a -- )
-\\               Set the return stack pointer
+\ rp!           ( a -- )
+\               Set the return stack pointer
 code rp!
     ebp pop
     next c; compile-only
@@ -1398,22 +1398,22 @@ code rp!
 
 
 
-\\                                                                    vandys
-\\ r>            ( -- w )
-\\               Pop the return stack to the data stack
+\                                                                    vandys
+\ r>            ( -- w )
+\               Pop the return stack to the data stack
 code r>
     0 [ebp] push
     CELLL # ebp add
     next c; compile-only
 
-\\ r@            ( -- w )
-\\               Copy top of return stack to the data stack
+\ r@            ( -- w )
+\               Copy top of return stack to the data stack
 code r@
     0 [ebp] push
     next c;
 
-\\ >r            ( w -- )
-\\               Push the data stack to the return stack
+\ >r            ( w -- )
+\               Push the data stack to the return stack
 code >r
     CELLL # ebp sub
     0 [ebp] pop
@@ -1423,22 +1423,22 @@ code >r
 
 
 
-\\                                                                    vandys
-\\ sp@           ( -- a )
-\\               Push the current data stack pointer
+\                                                                    vandys
+\ sp@           ( -- a )
+\               Push the current data stack pointer
 code sp@
     esp ebx mov
     ebx push
     next c;
 
-\\ sp!           ( a -- )
-\\               Set the data stack pointer
+\ sp!           ( a -- )
+\               Set the data stack pointer
 code sp!
     esp pop
     next c;
 
-\\ drop  ( w -- )
-\\               Discard top stack item
+\ drop  ( w -- )
+\               Discard top stack item
 code drop
     CELLL # esp add
     next c;
@@ -1448,14 +1448,14 @@ code drop
 
 
 
-\\                                                                    vandys
-\\ dup           ( w -- w w )
-\\               Duplicate the top stack item
+\                                                                    vandys
+\ dup           ( w -- w w )
+\               Duplicate the top stack item
 code dup
     esp ebx mov   0 [ebx] push   next c;
 
-\\ swap  ( w1 w2 -- w2 w1 )
-\\               Exchange top two stack items
+\ swap  ( w1 w2 -- w2 w1 )
+\               Exchange top two stack items
 code swap
     ebx pop   eax pop   ebx push   eax push   next c;
 
@@ -1473,16 +1473,16 @@ code swap
 
 
 
-\\                                                                    vandys
-\\ over  ( w1 w2 -- w1 w2 w1 )
-\\               Copy second stack item to top
+\                                                                    vandys
+\ over  ( w1 w2 -- w1 w2 w1 )
+\               Copy second stack item to top
 code over
     esp ebx mov
     CELLL [ebx] push
     next c;
 
-\\ nip   ( w1 w2 -- w1 )
-\\               Remove second stack item
+\ nip   ( w1 w2 -- w1 )
+\               Remove second stack item
 code nip
     eax pop
     eax 0 [esp] mov
@@ -1498,7 +1498,7 @@ code nip
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 code tuck ( w1 w2 -- w2 w1 w2 )
     eax pop   ebx pop   eax push   ebx push   eax push   next c;
 
@@ -1523,9 +1523,9 @@ code 0< ( n -- ? )
 
 
 
-\\                                                                    vandys
-\\ and           ( w w -- w )
-\\               Bitwise AND
+\                                                                    vandys
+\ and           ( w w -- w )
+\               Bitwise AND
 code and
     ebx pop
     eax pop
@@ -1533,8 +1533,8 @@ code and
     ebx push
     next c;
 
-\\ or            ( w w -- w )
-\\               Bitwise inclusive OR
+\ or            ( w w -- w )
+\               Bitwise inclusive OR
 code or
     ebx pop
     eax pop
@@ -1548,9 +1548,9 @@ code or
 
 
 
-\\                                                                    vandys
-\\ xor           ( w w -- w )
-\\               Bitwise exclusive OR
+\                                                                    vandys
+\ xor           ( w w -- w )
+\               Bitwise exclusive OR
 code xor
     ebx pop
     eax pop
@@ -1558,26 +1558,26 @@ code xor
     ebx push
     next c;
 
-\\ um+           ( u u -- udsum )
-\\               Add two unsigned single numbers and return a double sum
+\ um+           ( u u -- udsum )
+\               Add two unsigned single numbers and return a double sum
 code um+
-    ecx ecx xor         \\ ecx == 0, initial carry
+    ecx ecx xor         \ ecx == 0, initial carry
     ebx pop
     eax pop
     ebx eax add
-    ecx 1 rcl           \\ Get carry
-    eax push            \\ Push sum
-    ecx push            \\  and carry
+    ecx 1 rcl           \ Get carry
+    eax push            \ Push sum
+    ecx push            \  and carry
     next c;
 
 
 
 
-\\                                                                    vandys
-\\ System and user variables
+\                                                                    vandys
+\ System and user variables
 
-\\ doVAR ( -- a )
-\\               Run time routine for VARIABLE and CREATE
+\ doVAR ( -- a )
+\               Run time routine for VARIABLE and CREATE
 code doVAR
     here _doVAR !
     esi push
@@ -1585,8 +1585,8 @@ code doVAR
     CELLL # ebp add
     next c; compile-only
 
-\\ up            ( -- a )
-\\               Pointer to the user area
+\ up            ( -- a )
+\               Pointer to the user area
 create up  here _up !  UPP ,
 
 
@@ -1598,9 +1598,9 @@ create up  here _up !  UPP ,
 
 
 
-\\                                                                    vandys
-\\ doUSER        ( -- a )
-\\               Run time routine for user variables
+\                                                                    vandys
+\ doUSER        ( -- a )
+\               Run time routine for user variables
 code doUSER
     here _doUSER !
     0 [esi] eax mov
@@ -1609,146 +1609,146 @@ code doUSER
     0 [ebx] ebx mov
     ebx eax add
     eax push
-    0 [ebp] esi mov     \\ Pop return address
-    CELLL # ebp add     \\ Adjust RP
+    0 [ebp] esi mov     \ Pop return address
+    CELLL # ebp add     \ Adjust RP
     next c; compile-only
 
-\\ sp0           ( -- a )
-\\               Pointer to bottom of the data stack
+\ sp0           ( -- a )
+\               Pointer to bottom of the data stack
 user sp0
 
-\\ rp0           ( -- a )
-\\               Pointer to bottom of the return stack
+\ rp0           ( -- a )
+\               Pointer to bottom of the return stack
 user rp0
 
 
 
-\\                                                                    vandys
-\\ 'ttyops       ( -- a )
-\\               Execution vectors to operations on terminal
+\                                                                    vandys
+\ 'ttyops       ( -- a )
+\               Execution vectors to operations on terminal
 user 'ttyops
 
-\\ 'expect       ( -- a )
-\\               Execution vector of EXPECT
+\ 'expect       ( -- a )
+\               Execution vector of EXPECT
 user 'expect
 
-\\ 'tap  ( -- a )
-\\               Execution vector of TAP
+\ 'tap  ( -- a )
+\               Execution vector of TAP
 user 'tap
 
-\\ 'echo ( -- a )
-\\               Execution vector of ECHO
+\ 'echo ( -- a )
+\               Execution vector of ECHO
 user 'echo
 
-\\ 'prompt       ( -- a )
-\\               Execution vector of PROMPT
+\ 'prompt       ( -- a )
+\               Execution vector of PROMPT
 user 'prompt
 
 
 
 
 
-\\                                                                    vandys
-\\ base  ( -- a )
-\\               Storage of the radix base for numeric I/O
+\                                                                    vandys
+\ base  ( -- a )
+\               Storage of the radix base for numeric I/O
 user base
 
-\\ tmp   ( -- a )
-\\               A temporary storage location used in parse and find
+\ tmp   ( -- a )
+\               A temporary storage location used in parse and find
 user tmp
 
-\\ span  ( -- a )
-\\               Hold character count received by EXPECT
+\ span  ( -- a )
+\               Hold character count received by EXPECT
 user span
 
-\\ >in           ( -- a )
-\\               Hold the character pointer while parsing input stream
+\ >in           ( -- a )
+\               Hold the character pointer while parsing input stream
 user >in
 
-\\ #tib  ( -- a )
-\\               Hold current count in, address of terminal input buffer
+\ #tib  ( -- a )
+\               Hold current count in, address of terminal input buffer
 user #tib
 
 
 
 
 
-\\                                                                    vandys
-\\ tib   ( -- a )
-\\               Terminal input buffer, and its initial one
+\                                                                    vandys
+\ tib   ( -- a )
+\               Terminal input buffer, and its initial one
 user tib
 user tib0
 
-\\ csp           ( -- a )
-\\               Hold the stack pointer for error checking
+\ csp           ( -- a )
+\               Hold the stack pointer for error checking
 user csp
 
-\\ 'eval ( -- a )
-\\               Execution vector of EVAL
+\ 'eval ( -- a )
+\               Execution vector of EVAL
 user 'eval
 
-\\ 'number       ( -- a )
-\\               Execution vector of NUMBER?
+\ 'number       ( -- a )
+\               Execution vector of NUMBER?
 user 'number
 
-\\ hld           ( -- a )
-\\               Hold a pointer in building a numeric output string
+\ hld           ( -- a )
+\               Hold a pointer in building a numeric output string
 user hld
 
 
 
 
-\\                                                                    vandys
-\\ handler       ( -- a )
-\\               Hold the return stack pointer for error handling
+\                                                                    vandys
+\ handler       ( -- a )
+\               Hold the return stack pointer for error handling
 user handler
 
-\\ context       ( -- a )
-\\               A area to specify vocabulary search order
+\ context       ( -- a )
+\               A area to specify vocabulary search order
 user context
-CELLL #VOCS * _USER +!  \\ vocabulary stack follows context
+CELLL #VOCS * _USER +!  \ vocabulary stack follows context
 
-\\ current       ( -- a )
-\\               Point to the vocabulary to be extended
-\\ \"current\" is actually a pair of words.  The first points to
-\\ the vocabulary receiving definitions.  The second word builds
-\\ a linked list of all vocabularies defined in the system.  This
-\\ is useful for \"forget\", which must trim words beyond the
-\\ forgotten point from all word lists.
+\ current       ( -- a )
+\               Point to the vocabulary to be extended
+\ "current" is actually a pair of words.  The first points to
+\ the vocabulary receiving definitions.  The second word builds
+\ a linked list of all vocabularies defined in the system.  This
+\ is useful for "forget", which must trim words beyond the
+\ forgotten point from all word lists.
 user current
-CELLL _USER +!          \\ vocabulary link pointer follows current
+CELLL _USER +!          \ vocabulary link pointer follows current
 
 
 
 
 
 
-\\                                                                    vandys
-\\ cp            ( -- a )
-\\               Point to the top of the code dictionary
+\                                                                    vandys
+\ cp            ( -- a )
+\               Point to the top of the code dictionary
 user cp
 
-\\ last  ( -- a )
-\\               Point to the last name in the name dictionary
+\ last  ( -- a )
+\               Point to the last name in the name dictionary
 user last
 
-\\ offset        ( -- a )
-\\               Base for BLOCK I/O offsets
+\ offset        ( -- a )
+\               Base for BLOCK I/O offsets
 user offset
 
-\\ ttchan        ( -- u )
-\\               TTY channel to use for this user
+\ ttchan        ( -- u )
+\               TTY channel to use for this user
 user ttchan
 
-\\ blk   ( -- a )
-\\               Current block # as source of input
+\ blk   ( -- a )
+\               Current block # as source of input
 user blk
 
 
 
 
 
-\\ More user variables (comments on shadow)                           vandys
+\ More user variables (comments on shadow)                           vandys
 user prio
 
 user keychar
@@ -1765,7 +1765,7 @@ user tmp1   user tmp2
 
 user (local)
 
-\\ ---- ULAST ----
+\ ---- ULAST ----
 
 
 
@@ -1773,48 +1773,48 @@ user (local)
 
 
 
-\\                                                                    vandys
-\\ user0 ( -- a )
-\\               Address of prototype USER area
+\                                                                    vandys
+\ user0 ( -- a )
+\               Address of prototype USER area
 user0 @ constant user0
 
-\\ #user ( -- u )
-\\               Size of USER area
+\ #user ( -- u )
+\               Size of USER area
 usize @ constant #user
 
-\\ (BASEM) ( -- u )
-\\               Address of base of memory for Forth image running
+\ (BASEM) ( -- u )
+\               Address of base of memory for Forth image running
 BASEM constant BASEM
 
-\\ Common functions
+\ Common functions
 
-\\ doVOC ( -- )
-\\               Run time action of VOCABULARY's
+\ doVOC ( -- )
+\               Run time action of VOCABULARY's
 : doVOC   r> context !   ;
 lastcode _doVOC !
 
-\\ #VOCS ( -- )
-\\               Return # of vocabulary slots available
+\ #VOCS ( -- )
+\               Return # of vocabulary slots available
 #VOCS constant #VOCS
 
 
-\\                                                                    vandys
-\\ : ?dup ( w -- w w | 0 )   dup if dup then ;
+\                                                                    vandys
+\ : ?dup ( w -- w w | 0 )   dup if dup then ;
 code ?dup   0 [esp] eax mov   eax eax or   1 $ je   eax push
    1 $: next c;
 
-\\ : rot ( w1 w2 w3 -- w2 w3 w1 )   >r swap r> swap ;
+\ : rot ( w1 w2 w3 -- w2 w3 w1 )   >r swap r> swap ;
 code rot   eax pop   ebx pop   ecx pop
    ebx push   eax push   ecx push   next c;
 
-\\ : -rot ( w1 w2 w3 -- w3 w1 w2 )   swap >r swap r> ;
+\ : -rot ( w1 w2 w3 -- w3 w1 w2 )   swap >r swap r> ;
 code -rot   eax pop   ebx pop   ecx pop
    eax push   ecx push   ebx push   next c;
 
-\\ : 2drop ( d -- )   drop drop ;
+\ : 2drop ( d -- )   drop drop ;
 code 2drop   8 # esp add   next c;
 
-\\ : 2dup ( d -- d d )   over over ;
+\ : 2dup ( d -- d d )   over over ;
 code 2dup   4 [esp] eax mov   0 [esp] ebx mov
    eax push   ebx push   next c;
 
@@ -1823,7 +1823,7 @@ code 2dup   4 [esp] eax mov   0 [esp] ebx mov
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 code + ( w w -- sum )
     eax pop   ebx pop   ebx eax add   eax push   next c;
 
@@ -1848,9 +1848,9 @@ code dec ( a -- )   ebx pop   0 [ebx] dec   next c;
 
 
 
-\\                                                                    vandys
-\\ 1+, 2+        ( n -- n )
-\\               Add one/two to argument
+\                                                                    vandys
+\ 1+, 2+        ( n -- n )
+\               Add one/two to argument
 code 1+
     0 [esp] inc
     next c;
@@ -1858,36 +1858,36 @@ code 2+
    eax pop   2 # eax add   eax push
    next c;
 
-\\ negate        ( n -- -n )
-\\               Two's complement of tos
+\ negate        ( n -- -n )
+\               Two's complement of tos
 : negate   not 1+   ;
 
-\\ -             ( n1 n2 -- n1-n2 )
-\\               Subtraction
+\ -             ( n1 n2 -- n1-n2 )
+\               Subtraction
 : -   negate +   ;
 
-\\ abs           ( n -- n )
-\\               Return the absolute value of n
+\ abs           ( n -- n )
+\               Return the absolute value of n
 : abs   dup 0< if   negate   then   ;
 
 
 
 
-\\                                                                    vandys
-\\ 1-            ( n -- n )
-\\               Subtract one from argument
+\                                                                    vandys
+\ 1-            ( n -- n )
+\               Subtract one from argument
 code 1-
     0 [esp] dec
     next c;
 
-\\ 2/            ( n -- n )
-\\               Divide argument by two
+\ 2/            ( n -- n )
+\               Divide argument by two
 code 2/
     0 [esp] 1 sar
     next c;
 
-\\ 2*            ( n -- n )
-\\               Multiply argument by two
+\ 2*            ( n -- n )
+\               Multiply argument by two
 code 2*
     0 [esp] 1 shl
     next c;
@@ -1898,17 +1898,17 @@ code 2*
 
 
 
-\\                                                                    vandys
-\\ <<, lshift        ( n u -- n )
-\\               Shift left by \"u\" count
+\                                                                    vandys
+\ <<, lshift        ( n u -- n )
+\               Shift left by "u" count
 code <<
     ecx pop
     0 [esp] cl shl
     next c;
 : lshift   << ;
 
-\\ >>, rshift        ( n u -- n )
-\\               Shift right by \"u\" count
+\ >>, rshift        ( n u -- n )
+\               Shift right by "u" count
 code >>
     ecx pop
     0 [esp] cl shr
@@ -1923,9 +1923,9 @@ code >>
 
 
 
-\\                                                                    vandys
-\\ =             ( w w -- t )
-\\               Return true if top two are equal
+\                                                                    vandys
+\ =             ( w w -- t )
+\               Return true if top two are equal
 code =
     eax pop
     0 [esp] eax cmp
@@ -1948,7 +1948,7 @@ code =
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 code 0= ( w -- ? )
     eax pop   eax eax or   1 $ je
     false push#   next
@@ -1973,9 +1973,9 @@ code <> ( w1 w2 -- ? )
 
 
 
-\\                                                                    vandys
-\\ u<=   ( u u -- t )
-\\               Unsigned compare of top two items
+\                                                                    vandys
+\ u<=   ( u u -- t )
+\               Unsigned compare of top two items
 code u<=
     eax pop
     eax 0 [esp] cmp
@@ -1998,9 +1998,9 @@ code u<=
 
 
 
-\\                                                                    vandys
-\\ u<            ( u u -- t )
-\\               Unsigned compare of top two items
+\                                                                    vandys
+\ u<            ( u u -- t )
+\               Unsigned compare of top two items
 code u<
     eax pop
     eax 0 [esp] cmp
@@ -2023,9 +2023,9 @@ code u<
 
 
 
-\\                                                                    vandys
-\\ <             ( n1 n2 -- t )
-\\               Signed compare of top two items
+\                                                                    vandys
+\ <             ( n1 n2 -- t )
+\               Signed compare of top two items
 code <
     eax pop
     eax 0 [esp] cmp
@@ -2038,7 +2038,7 @@ code <
     eax 0 [esp] mov
     next c;
 
-\\ Other variations of comparison
+\ Other variations of comparison
 : >   swap <   ;
 : >=   < not   ;
 : <=   > not   ;
@@ -2048,20 +2048,20 @@ code <
 
 
 
-\\                                                                    vandys
-\\ max           ( n n -- n )
-\\               Return the greater of two top stack items
+\                                                                    vandys
+\ max           ( n n -- n )
+\               Return the greater of two top stack items
 : max   2dup < if   swap   then   drop   ;
 
-\\ min           ( n n -- n )
-\\               Return the smaller of top two stack items
+\ min           ( n n -- n )
+\               Return the smaller of top two stack items
 : min   2dup swap < if   swap   then drop   ;
 
-\\ within        ( u ul uh -- t )
-\\               Return true if ( ul <= u < uh )
+\ within        ( u ul uh -- t )
+\               Return true if ( ul <= u < uh )
 : within   over - >r   - r> u<   ;
 
-\\ #nbpw         Number of bits in a cell
+\ #nbpw         Number of bits in a cell
 NBPW constant #nbpw
 
 
@@ -2073,9 +2073,9 @@ NBPW constant #nbpw
 
 
 
-\\                                                                    vandys
-\\ um/mod        ( udl udh un -- ur uq )
-\\               Unsigned divide of double by single. Return mod, quotient
+\                                                                    vandys
+\ um/mod        ( udl udh un -- ur uq )
+\               Unsigned divide of double by single. Return mod, quotient
 : um/mod   2dup u< if
   negate #nbpw 0 do
    >r dup um+  >r >r dup um+
@@ -2098,34 +2098,34 @@ NBPW constant #nbpw
 
 
 
-\\                                                                    vandys
-\\ m/mod ( d n -- r q )
-\\               Signed floored divide of double by single
-\\               Return mod and quotient
+\                                                                    vandys
+\ m/mod ( d n -- r q )
+\               Signed floored divide of double by single
+\               Return mod and quotient
 : m/mod   dup 0< dup >r if   negate >r dnegate r>   then
  >r dup 0< if   r@ +   then
  r> um/mod r> if   swap negate swap   then
 ;
 
-\\ /mod  ( n n -- r q )
-\\               Signed divide. Return mod and quotient
+\ /mod  ( n n -- r q )
+\               Signed divide. Return mod and quotient
 : /mod   over 0< swap m/mod   ;
 
-\\ mod           ( n n -- r )
-\\               Signed divide. Return mod only
+\ mod           ( n n -- r )
+\               Signed divide. Return mod only
 : mod   /mod drop   ;
 
-\\ /             ( n n -- q )
-\\               Signed divide. Return quotient only
+\ /             ( n n -- q )
+\               Signed divide. Return quotient only
 : /   /mod swap drop   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ um*           ( u u -- ud )
-\\               Unsigned multiply. Return double product
+\                                                                    vandys
+\ um*           ( u u -- ud )
+\               Unsigned multiply. Return double product
 : um*   0 swap #nbpw 0 do
   dup um+ >r >r
   dup um+ r> + r> if
@@ -2133,57 +2133,57 @@ NBPW constant #nbpw
   then
  loop   rot drop   ;
 
-\\ *             ( n n -- n )
-\\               Signed multiply. Return single product
+\ *             ( n n -- n )
+\               Signed multiply. Return single product
 code *
  eax pop
  0 [esp] imul
  eax 0 [esp] mov
  next c;
 
-\\ m*            ( n n -- d )
-\\               Signed multiply. Return double product
+\ m*            ( n n -- d )
+\               Signed multiply. Return double product
 : m*   2dup xor 0< >r   abs swap abs um* r>   if dnegate then   ;
 
 
 
 
-\\                                                                    vandys
-\\ */mod ( n1 n2 n3 -- r q )
-\\               Multiply n1 and n2, then divide by n3
-\\               Return mod and quotient
+\                                                                    vandys
+\ */mod ( n1 n2 n3 -- r q )
+\               Multiply n1 and n2, then divide by n3
+\               Return mod and quotient
 : */mod   >r m* r> m/mod   ;
 
-\\               ( n1 n2 n3 -- q )
-\\               Multiply n1 by n2, then divide by n3. Return quotient only
+\               ( n1 n2 n3 -- q )
+\               Multiply n1 by n2, then divide by n3. Return quotient only
 : */   */mod swap drop   ;
 
-\\ cell+ ( a -- a )
-\\               Add cell size in byte to address
+\ cell+ ( a -- a )
+\               Add cell size in byte to address
 code cell+
     CELLL # eax mov
     eax 0 [esp] add
     next c;
 
-\\ cell- ( a -- a )
-\\               Subtract cell size in byte from address
+\ cell- ( a -- a )
+\               Subtract cell size in byte from address
 code cell-
     CELLL # eax mov
     eax 0 [esp] sub
     next c;
 
 
-\\                                                                    vandys
-\\ cells ( n -- n )
-\\               Multiply tos by cell size in bytes
+\                                                                    vandys
+\ cells ( n -- n )
+\               Multiply tos by cell size in bytes
 code cells
     0 [esp] eax mov
     eax 2 shl
     eax 0 [esp] mov
     next c;
 
-\\ aligned       ( b -- a )
-\\               Align address to the cell boundary
+\ aligned       ( b -- a )
+\               Align address to the cell boundary
 code aligned
     0 [esp] eax mov
     CELLL 1- # eax add
@@ -2191,14 +2191,14 @@ code aligned
     eax 0 [esp] mov
     next c;
 
-\\ bl            ( -- 32 )
-\\               Return 32, the blank character
+\ bl            ( -- 32 )
+\               Return 32, the blank character
 32 constant bl
 
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 -1 constant true
 0 constant false
 
@@ -2223,7 +2223,7 @@ code aligned
 
 
 
-\\ Double, triple words, counted string support words                 vandys
+\ Double, triple words, counted string support words                 vandys
 code 2! ( d a -- )   ebx pop   eax pop   ecx pop   eax 0 [ebx] mov
    ecx 4 [ebx] mov   next c;
 code 2@ ( a -- d )   ebx pop   4 [ebx] eax mov   0 [ebx] ecx mov
@@ -2248,7 +2248,7 @@ code 3@ ( a -- t )   ebx pop   8 [ebx] edx mov   4 [ebx] ecx mov
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : catch ( ca -- 0 | err# )
    sp@ >r   (local) @ >r   handler @ >r
    rp@ handler !   execute
@@ -2264,43 +2264,43 @@ code 3@ ( a -- t )   ebx pop   8 [ebx] edx mov   4 [ebx] ecx mov
 : @execute ( a -- )   @ ?dup if execute then ;
 
 : (abort) ( a -- )   'abortTrap @execute   throw ;
-: (abort\") ( ? -- )   do$ swap if   (abort)   then
+: (abort") ( ? -- )   do$ swap if   (abort)   then
    drop ; compile-only
-lastcode _(abort\") !
+lastcode _(abort") !
 
 
 
 
 
 
-\\                                                                    vandys
-\\ here  ( -- a )
-\\               Return the top of the code dictionary
+\                                                                    vandys
+\ here  ( -- a )
+\               Return the top of the code dictionary
 : here   cp @   ;
 
-\\ pad           ( -- a )
-\\               Return address of text buffer above code dictionary
+\ pad           ( -- a )
+\               Return address of text buffer above code dictionary
 #TIBLINE constant #TIBLINE
 : pad   here #TIBLINE +   ;
 
-\\ align ( -- )
-\\               Align HERE with a cell boundary
+\ align ( -- )
+\               Align HERE with a cell boundary
 : align   here aligned cp !   ;
 
-\\ allot ( n -- )
-\\               Allocate n bytes to the code dictionary
+\ allot ( n -- )
+\               Allocate n bytes to the code dictionary
 : allot   cp +!   ;
 
-\\ unloop        Remove current do..loop state from return stack
+\ unloop        Remove current do..loop state from return stack
 : unloop  r>   r> drop r> drop r> drop   >r   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ cmove ( b1 b2 u -- )
-\\               Copy u bytes from b1 to b2
+\                                                                    vandys
+\ cmove ( b1 b2 u -- )
+\               Copy u bytes from b1 to b2
 code cmove
     ecx pop
     edi pop
@@ -2323,9 +2323,9 @@ code cmove
 
 
 
-\\                                                                    vandys
-\\ cmove>        ( b1 b2 u -- )
-\\               Copy u bytes from b1 to b2, from higher to lower
+\                                                                    vandys
+\ cmove>        ( b1 b2 u -- )
+\               Copy u bytes from b1 to b2, from higher to lower
 code cmove>
     ecx pop
     edi pop
@@ -2348,22 +2348,22 @@ code cmove>
 
 
 
-\\                                                                    vandys
-\\ move  ( a1 a2 u -- )
-\\               Copy u bytes from a1 to a2, avoiding copy ripple
+\                                                                    vandys
+\ move  ( a1 a2 u -- )
+\               Copy u bytes from a1 to a2, avoiding copy ripple
 code move
     ecx pop   edi pop   eax pop   esi push   eax esi mov
 
-    edi esi cmp         \\ Determine direction
+    edi esi cmp         \ Determine direction
     1 $ jg
 
-    ecx eax mov         \\ Scale count by word size
-    eax dec             \\ Point to last byte
-    eax edi add         \\ Copy from high to low
+    ecx eax mov         \ Scale count by word size
+    eax dec             \ Point to last byte
+    eax edi add         \ Copy from high to low
     eax esi add
     std   rep byte movs   cld   esi pop   next
 
-\\ Copy forward
+\ Copy forward
 1 $:   rep byte movs   esi pop   next c;
 
 
@@ -2373,7 +2373,7 @@ code move
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 code fill ( a u c -- )
    eax pop   ecx pop   edi pop   rep byte stos   next c;
@@ -2398,24 +2398,24 @@ code wfill ( a u-count u-val -- )
 
 
 
-\\                                                                    vandys
-\\ -trailing     ( b u -- b u )
-\\               Adjust the count to eliminate trailing white space
+\                                                                    vandys
+\ -trailing     ( b u -- b u )
+\               Adjust the count to eliminate trailing white space
 : -trailing
  begin   dup 0= if exit then
   2dup 1- + c@   bl > if exit then
  1- again   ;
 
-\\ pack$ ( b u a -- a )
-\\               Build a counted string with u chars from b. Null fill
-: pack$   aligned dup >r                \\ Strings on cell boundary
- over dup 0 1 cells um/mod drop         \\ Count mod cell
- - over + 0 swap !                      \\ Null fill cell
- 2dup c! 1+                             \\ Save count
- swap cmove r>   ;                      \\ Move string, return address
+\ pack$ ( b u a -- a )
+\               Build a counted string with u chars from b. Null fill
+: pack$   aligned dup >r                \ Strings on cell boundary
+ over dup 0 1 cells um/mod drop         \ Count mod cell
+ - over + 0 swap !                      \ Null fill cell
+ 2dup c! 1+                             \ Save count
+ swap cmove r>   ;                      \ Move string, return address
 
-\\ digit ( u -- c )
-\\               Convert digit u to a character
+\ digit ( u -- c )
+\               Convert digit u to a character
 : digit   9 over < 7 and + 48 +   ;
 
 
@@ -2423,57 +2423,57 @@ code wfill ( a u-count u-val -- )
 
 
 
-\\                                                                    vandys
-\\ extract       ( n base -- n c )
-\\               Extract the least significant digit from n
+\                                                                    vandys
+\ extract       ( n base -- n c )
+\               Extract the least significant digit from n
 : extract   0 swap um/mod swap digit   ;
 
-\\ <#            ( -- )
-\\               Initiate the numeric output process
+\ <#            ( -- )
+\               Initiate the numeric output process
 : <#   pad hld !   ;
 
-\\ hold  ( c -- )
-\\               Insert a character into the numeric output string
+\ hold  ( c -- )
+\               Insert a character into the numeric output string
 : hold   hld @ 1-   dup hld !   c!   ;
 
-\\ #             ( u -- u )
-\\               Extract one digit from u and append digit to out string
+\ #             ( u -- u )
+\               Extract one digit from u and append digit to out string
 : #   base @ extract hold   ;
 
-\\ #s            ( u -- 0 )
-\\               Convert u until all digits are added to the output string
+\ #s            ( u -- 0 )
+\               Convert u until all digits are added to the output string
 : #s   begin   #   dup 0= if exit then   again   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ sign  ( n -- )
-\\               Add a minus sign to the numeric output string
+\                                                                    vandys
+\ sign  ( n -- )
+\               Add a minus sign to the numeric output string
 : sign   0< if 45 hold then   ;
 
-\\ #>            ( w -- b u )
-\\               Prepare the output string to be TYPE'd
+\ #>            ( w -- b u )
+\               Prepare the output string to be TYPE'd
 : #>   drop hld @ pad over -   ;
 
-\\ str           ( w -- b u )
-\\               Convert a signed integer to a numeric string
+\ str           ( w -- b u )
+\               Convert a signed integer to a numeric string
 : str   dup >r   abs <# #s   r> sign   #>   ;
 
-\\ hex           ( -- )
-\\               Use radix 16 as base for numeric conversions
+\ hex           ( -- )
+\               Use radix 16 as base for numeric conversions
 : hex   16 base !   ;
 
-\\ decimal       ( -- )
-\\               Use radix 10 as base for numeric conversions
+\ decimal       ( -- )
+\               Use radix 10 as base for numeric conversions
 : decimal   10 base !   ;
 
 
 
 
 
-\\ Digit parsing                                                      vandys
+\ Digit parsing                                                      vandys
 : -digit ( c -- n )   $30 -   dup 9 > if   7 - dup $A < or   then
    dup base @ u< not if   tmp1 @ base !   tmp @ throw   then ;
 
@@ -2498,7 +2498,7 @@ code wfill ( a u-count u-val -- )
 
 
 
-\\ Number parsing, also keyboard primitive                            vandys
+\ Number parsing, also keyboard primitive                            vandys
 : number ( a -- n )
    dup tmp !   base @ tmp1 !
    count over c@ $2D = dup >r if +ch then
@@ -2523,24 +2523,24 @@ lastcode tnumber !
 
 
 
-\\                                                                    vandys
-\\ key?          ( -- T | F )
-\\               Map (key?) onto the standard key? semantics.
+\                                                                    vandys
+\ key?          ( -- T | F )
+\               Map (key?) onto the standard key? semantics.
 : key?
-        \\ A previously detected keystroke is still available
+        \ A previously detected keystroke is still available
         keychar c@ if   true exit   then
 
-        \\ Have a new key, save it and flag its presence
+        \ Have a new key, save it and flag its presence
         (key?) dup if   swap keychar c!   then
 ;
 
-\\ key           ( -- c )
-\\               Spin until we get a keystroke
+\ key           ( -- c )
+\               Spin until we get a keystroke
 : key
-        \\ Wait for a key
+        \ Wait for a key
         begin key? until
 
-        \\ Pull it from keychar, clear it, and done
+        \ Pull it from keychar, clear it, and done
         keychar c@   0 keychar c!
 ;
 
@@ -2548,82 +2548,82 @@ lastcode tnumber !
 
 
 
-\\                                                                    vandys
-\\ emit  ( c -- )
-\\               Send a character to the output device
+\                                                                    vandys
+\ emit  ( c -- )
+\               Send a character to the output device
 : emit   1 'ttyops @execute   ;
 
-\\ 'rdwt ( -- a )
-\\               Vector to disk I/O services
+\ 'rdwt ( -- a )
+\               Vector to disk I/O services
 create 'rdwt   here _'rdwt !   0 ,
 
-\\ rdwt  ( a blockno flag -- bool )
-\\               Hook out to block driver (if any)
+\ rdwt  ( a blockno flag -- bool )
+\               Hook out to block driver (if any)
 : rdwt   'rdwt @ ?dup if   execute   else   2drop drop true   then   ;
 
-\\ nuf?  ( -- T | F )
-\\               Return false if no input, else pause and if CR return true
+\ nuf?  ( -- T | F )
+\               Return false if no input, else pause and if CR return true
 : nuf?   (key?) dup if   2drop key 13 =   then   ;
 
-\\ space ( -- )
-\\               Send the blank character to the output device
+\ space ( -- )
+\               Send the blank character to the output device
 : space   bl emit   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ spaces        ( +n -- )
-\\               Send n spaces to the output device
+\                                                                    vandys
+\ spaces        ( +n -- )
+\               Send n spaces to the output device
 : spaces   0 ?do space loop   ;
 
-\\ type  ( b u -- )
-\\               Output u characters from b
+\ type  ( b u -- )
+\               Output u characters from b
 : type   0 ?do   dup c@ emit   1+   loop drop   ;
 
-\\ cr            ( -- )
-\\               Output a carriage return and a line feed
+\ cr            ( -- )
+\               Output a carriage return and a line feed
 : cr   13 emit   10 emit   ;
 
-\\ (c\")          ( -- a )
-\\               Run-time to return address of compiled string
-: (c\")   do$   ;
-lastcode _(c\") !
+\ (c")          ( -- a )
+\               Run-time to return address of compiled string
+: (c")   do$   ;
+lastcode _(c") !
 
-\\ (.\")          ( -- )
-\\               Run time routine of .\" . Output a compiled string
-: (.\")   do$ count type   ;
-lastcode _(.\") !
+\ (.")          ( -- )
+\               Run time routine of ." . Output a compiled string
+: (.")   do$ count type   ;
+lastcode _(.") !
 
 
 
-\\                                                                    vandys
-\\ .r            ( n +n -- )
-\\               Display integer in a field of n columns, right justified
+\                                                                    vandys
+\ .r            ( n +n -- )
+\               Display integer in a field of n columns, right justified
 : .r   >r str r>   over - spaces   type   ;
 
-\\ u.r           ( u +n -- )
-\\               Display an unsigned integer in n column, right justified
+\ u.r           ( u +n -- )
+\               Display an unsigned integer in n column, right justified
 : u.r   >r   <# #s #>   r> over - spaces   type   ;
 
-\\ u.            ( u -- )
-\\               Display an unsigned integer in free format
+\ u.            ( u -- )
+\               Display an unsigned integer in free format
 : u.   <# #s #> space type   ;
 
-\\ .             ( w -- )
-\\               Display an integer in free format, preceeded by a space
+\ .             ( w -- )
+\               Display an integer in free format, preceeded by a space
 : .   base @ 10 xor if   u.   else   str space type   then   ;
 
-\\ ?             ( a -- )
-\\               Display the contents in a memory cell
+\ ?             ( a -- )
+\               Display the contents in a memory cell
 : ?   @ .   ;
 
 
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 
 
@@ -2648,7 +2648,7 @@ lastcode _(.\") !
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 code (parse)   edx pop   0 [esp] ecx mov   4 [esp] ebx mov
    ecx ecx or   1 $ je
    32 # dl cmp   2 $ jne
@@ -2673,7 +2673,7 @@ code (parse)   edx pop   0 [esp] ecx mov   4 [esp] ebx mov
    eax push   next
 c;
 
-\\                                                                    vandys
+\                                                                    vandys
 
 
 
@@ -2698,44 +2698,44 @@ c;
 
 
 
-\\                                                                    vandys
-\\ parse ( c -- b u   <string> )
-\\               Scan input stream and return counted string delimited by c
+\                                                                    vandys
+\ parse ( c -- b u   <string> )
+\               Scan input stream and return counted string delimited by c
 : parse   >r   tib @ >in @ +   #tib @ >in @ -   r> (parse)   >in +!   ;
 
-\\ .(            ( -- )
-\\               Output following string up to next )
+\ .(            ( -- )
+\               Output following string up to next )
 : .(   41 parse type   ; immediate
 
-\\ (             ( -- )
-\\               Ignore following string up to next ) . A comment.
+\ (             ( -- )
+\               Ignore following string up to next ) . A comment.
 : (   41 parse 2drop   ; immediate
 
-\\ \\             ( -- )
-\\               Ignore following text till the end of line
-: \\   #tib @ >in !   ; immediate
+\ \             ( -- )
+\               Ignore following text till the end of line
+: \   #tib @ >in !   ; immediate
 
-\\ char  ( -- c )
-\\               Parse next word and return its first character
+\ char  ( -- c )
+\               Parse next word and return its first character
 : char   bl parse drop   c@   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ token ( -- a   <string> )
-\\               Parse word from input stream, build it into the pad
+\                                                                    vandys
+\ token ( -- a   <string> )
+\               Parse word from input stream, build it into the pad
 : token   bl parse   31 min   pad pack$   ;
 
-\\ word  ( c -- a   <string> )
-\\               Parse word from input stream, copy to code dictionary
+\ word  ( c -- a   <string> )
+\               Parse word from input stream, copy to code dictionary
 : word   parse   here pack$   ;
 
-\\ Dictionary search
+\ Dictionary search
 
-\\ name> ( na -- ca )
-\\               Return a code address given a name address
+\ name> ( na -- ca )
+\               Return a code address given a name address
 : name>   cell- cell- @   ;
 
 
@@ -2748,9 +2748,9 @@ c;
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 $1F constant lenmask
-\\ find ( a va -- ca na | a F )
+\ find ( a va -- ca na | a F )
 code find   ecx pop
 2 $:   0 [ecx] ecx mov   ecx ecx or   1 $ je
    0 [esp] ebx mov   0 [ebx] al mov   lenmask # eax and
@@ -2764,7 +2764,7 @@ code find   ecx pop
 5 $:   -8 [ecx] eax mov   eax 0 [esp] mov   ecx push   next
 c;
 
-\\ See shadow for lotsa comments
+\ See shadow for lotsa comments
 
 
 
@@ -2773,11 +2773,11 @@ c;
 
 
 
-\\                                                                    vandys
-\\ Return dot position or 0
+\                                                                    vandys
+\ Return dot position or 0
 : (dot?) ( a -- a a' | a 0 )   dup count over + swap do
    i c@ [char] . = if   i unloop exit   then   loop   0 ;
-\\ Access dotted string in its various forms
+\ Access dotted string in its various forms
 : (str>len) ( a a' -- a a' u )   2dup swap - 1- ;
 : (str>base) ( a a' -- a a' )   2dup swap c@ swap c!
    (str>len) >r   over r> swap c! ;
@@ -2798,7 +2798,7 @@ c;
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : (vocab?) ( a a' -- a 0 | a a' va )
    (str>base) current begin
    cell+ @ dup while   2 pick over voc>nfa (ent=) if
@@ -2823,8 +2823,8 @@ variable 'local?
 
 
 
-\\                                                                    shacham
-\\ Terminal response and line editing
+\                                                                    shacham
+\ Terminal response and line editing
 : (#tib@)  ( -- a )  #tib @ cell+   ;
 : (#tib>dist)  ( a -- a')  (#tib@)   ;
 : (#tib>c)  ( a -- a' )  (#tib>dist) cell+   ;
@@ -2848,19 +2848,19 @@ variable 'local?
 : (dist^b)  ( bot eot cur -- bot eot cur )  (<dist) 0 do   (^b)   loop   ;
 : (n^f)  ( bot eot cur n -- bot eot cur )  0 do   (^f)   loop   ;
 
-\\                                                                    shacham
+\                                                                    shacham
 
 : (dist>0)  ( cur eob eot -- cur u )  nip over - dup 0< if   drop 0   then   ;
 
-\\ (cur>eot)  ( bot eot cur -- bot eot cur n )
-\\        Distance between cur and right most non-blank char (i.e. eot')
-\\        Note: only scenarios where cur is left of eot' are handled
+\ (cur>eot)  ( bot eot cur -- bot eot cur n )
+\        Distance between cur and right most non-blank char (i.e. eot')
+\        Note: only scenarios where cur is left of eot' are handled
 : (cur>eot)  >r 2dup r> rot rot   begin   2dup = not while
         (lchar) bl = if   1 -   else   (dist>0)   exit   then
       repeat   2drop 0   ;
 
-\\ Stack for all line editing words -- ^a ^b ^d ^e ^f ^h ^k ^u -- is
-\\            ( bot eot cur -- bot eot cur )
+\ Stack for all line editing words -- ^a ^b ^d ^e ^f ^h ^k ^u -- is
+\            ( bot eot cur -- bot eot cur )
 : ^a  begin   (notbol?) while   (^b)   repeat   ;
 : ^b  (notbol?) if   (^b)   then   ;
 : ^d  (cur>eot) ?dup if   (>dist) 0 do   (char<r)   loop   (dist^b)   then   ;
@@ -2873,16 +2873,16 @@ variable 'local?
 
 
 
-\\                                                                    shacham
+\                                                                    shacham
 
-\\ (1char>)  ( bot eot cur -- bot eot cur )
-\\        Shift command line one char right starting at cur as
-\\        preparation for insertion of a new char at cur
+\ (1char>)  ( bot eot cur -- bot eot cur )
+\        Shift command line one char right starting at cur as
+\        preparation for insertion of a new char at cur
 : (1char>)  (cur>eot) ?dup if   (>dist)   (n^f)
      (<dist) 0 do   (char>r)   (bs)   (bs)   loop   then   ;
 
-\\ tap  ( bot eot cur c -- bot eot cur )
-\\       Accept and echo the key and bump the cursor
+\ tap  ( bot eot cur c -- bot eot cur )
+\       Accept and echo the key and bump the cursor
 : tap  (#tib>c) c!  (1char>)   (#tib>c) c@ (keyc)   ;
 
 
@@ -2898,42 +2898,42 @@ variable 'local?
 
 
 
-\\                                                                    vandys
-\\ History of commands
+\                                                                    vandys
+\ History of commands
 #HIST constant #HIST   #HIST 1- constant HISTMASK   72 constant #HISTSH
 
 : (#tib)  ( -- u )  #tib @ #TIBLINE min   ;
 : (histmask)  ( n -- u )  HISTMASK and   ;
 
-\\            Locating history under tib
+\            Locating history under tib
 : (hist@)  ( -- a )  tib @ #TIBLINE +   ;
 : (hist>put)  ( a -- a' )  (hist@)   ;
 : (hist>pos)  ( a -- a' )  (hist@) cell+   ;
 : (hist>str)  ( a -- a' )  (hist>pos) cell+   ;
 
-\\ (#histib)  ( -- u )
-\\            History slot for current command
+\ (#histib)  ( -- u )
+\            History slot for current command
 : (#histib)  (hist>put) @ (histmask)   ;
 
-\\ (histib>)  ( u -- a )
-\\            Address of n-th counted string in history array
+\ (histib>)  ( u -- a )
+\            Address of n-th counted string in history array
 : (histib>)   #TIBLINE 1+ *   (hist>str) +   ;
 
 
 
 
 
-\\                                                                    vandys
-\\ (>hist)  ( -- )
-\\        Keep current command, if not empty
+\                                                                    vandys
+\ (>hist)  ( -- )
+\        Keep current command, if not empty
 : (>hist)  #tib @ 0 > if
-             (#tib) (#histib) (histib>) tuck c!  \\ keep command length
-             tib @ swap count move               \\ and string
-             (hist>put) inc                      \\ increment history counter
+             (#tib) (#histib) (histib>) tuck c!  \ keep command length
+             tib @ swap count move               \ and string
+             (hist>put) inc                      \ increment history counter
            then   ;
 
-\\ history  ( -- )
-\\        Show command history, oldest first
+\ history  ( -- )
+\        Show command history, oldest first
 : history  cr   #HIST 0 do
       (hist>put) @ #HIST - i + dup 0< if   drop   else
       dup .   space
@@ -2948,32 +2948,32 @@ variable 'local?
 
 
 
-\\                                                                    shacham
-\\ (>histp)  ( n -- )
-\\        History slot displacement, range is 0(current) to -#HIST(oldest)
+\                                                                    shacham
+\ (>histp)  ( n -- )
+\        History slot displacement, range is 0(current) to -#HIST(oldest)
 : (>histp)  (hist>pos) @ + dup 0 > if   drop exit   then
       dup #HIST + 0< if   drop exit   then
       dup (hist>put) @ + 0< if   drop exit   then
       (hist>pos) !   ;
 
-\\ (clrbl)  ( bot eot cur - bot eot cur )
-\\         Remove trailing blanks of a command line
+\ (clrbl)  ( bot eot cur - bot eot cur )
+\         Remove trailing blanks of a command line
 : (clrbl)  begin   (lchar) bl = while   ^h   repeat   ;
 
-\\ (<hist)  ( bot eot cur a -- bot eot cur )
-\\         Fetch a command from history into CLI
+\ (<hist)  ( bot eot cur a -- bot eot cur )
+\         Fetch a command from history into CLI
 : (<hist)  count over + swap   do   i c@ tap   loop   ;
 
-\\ (^p)  ( bot eot cur n -- bot eot cur )
+\ (^p)  ( bot eot cur n -- bot eot cur )
 : (^p)  (>histp)   ^e  ^u   (hist>pos) @ ?dup if
       (hist>put) @ + (histmask) (histib>)   (<hist)   (clrbl)   then   ;
 
-\\ ^p and ^n  ( bot eot cur -- bot eot cur )
-\\         Recall the previous or newer history command, if any
+\ ^p and ^n  ( bot eot cur -- bot eot cur )
+\         Recall the previous or newer history command, if any
 : ^p  -1 (^p)   ;
 : ^n  1 (^p)   ;
 
-\\                                                                    vandys
+\                                                                    vandys
 : kTAP ( bot eot cur c -- bot eot cur )
  dup  1 = if   drop ^a   exit   then   dup  2 = if   drop ^b   exit   then
  dup  4 = if   drop ^d   exit   then   dup  5 = if   drop ^e   exit   then
@@ -2998,7 +2998,7 @@ variable 'local?
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 
 
@@ -3023,7 +3023,7 @@ variable 'local?
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 
 
@@ -3048,7 +3048,7 @@ variable 'local?
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : query ( -- )   (hist>pos) off
    tib @ #TIBLINE 'expect @execute   #tib !   drop   >in off ;
@@ -3057,10 +3057,10 @@ create null$ 0 ,
 
 : abort ( -- )   null$ throw   ;
 
-\\ The text interpreter
+\ The text interpreter
 
-\\ #compile-only, #immediate, #markb
-\\                       Flags in byte of dictionary string count
+\ #compile-only, #immediate, #markb
+\                       Flags in byte of dictionary string count
 #compile-only constant #compile-only
 #immediate constant #immediate
 #markb constant #markb
@@ -3073,20 +3073,18 @@ create null$ 0 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : $interpret ( a -- )
  name? ?dup if
-  c@ #compile-only and abort\" compile only\"   execute
+  c@ #compile-only and abort" compile only"   execute
  else   'number @execute   then   ;
 
 : [ ( -- )   ['] $interpret 'eval !   ; immediate
 
 : compiling? ( -- ? )   ['] $interpret   'eval @ <> ;
-: .ok ( -- )   compiling? 0= if   .\"  Ok\"   then   cr ;
+: .ok ( -- )   compiling? 0= if   ."  Ok"   then   cr ;
 
-: ?stack ( -- )   depth 0< abort\" underflow\"   ;
-
-
+: ?stack ( -- )   depth 0< abort" underflow"   ;
 
 
 
@@ -3098,23 +3096,25 @@ create null$ 0 ,
 
 
 
-\\                                                                    vandys
-\\ eval  ( -- )
-\\               Interpret the input stream
+
+
+\                                                                    vandys
+\ eval  ( -- )
+\               Interpret the input stream
 : eval
  begin
   token   dup c@ 0= if   drop   'prompt @execute   exit   then
   'eval @execute   ?stack
  again   ;
 
-\\ Shell
+\ Shell
 
-\\ preset        ( -- )
-\\               Reset data stack pointer and the terminal input buffer
+\ preset        ( -- )
+\               Reset data stack pointer and the terminal input buffer
 : preset   sp0 @ sp!   tib0 @ tib !   #tib off   blk off ;
 
-\\ xio           ( a a a -- )
-\\               Reset the I/O vectors 'EXPECT, 'TAP, 'ECHO and 'PROMPT
+\ xio           ( a a a -- )
+\               Reset the I/O vectors 'EXPECT, 'TAP, 'ECHO and 'PROMPT
 : xio   ['] accept 'expect 2!   'echo 2!   ; compile-only
 
 
@@ -3123,13 +3123,13 @@ create null$ 0 ,
 
 
 
-\\                                                                    vandys
-\\ hand  ( -- )
-\\               Select I/O vectors for terminal interface
+\                                                                    vandys
+\ hand  ( -- )
+\               Select I/O vectors for terminal interface
 : hand   ['] .ok ['] emit ['] kTAP   xio   ;
 
-\\ console       ( -- )
-\\               Initiate terminal interface
+\ console       ( -- )
+\               Initiate terminal interface
 : console   hand   ;
 
 
@@ -3148,9 +3148,9 @@ create null$ 0 ,
 
 
 
-\\                                                                    vandys
-\\ quit  ( -- )
-\\           Reset return stack pointer and start text interpreter
+\                                                                    vandys
+\ quit  ( -- )
+\           Reset return stack pointer and start text interpreter
 : quit   rp0 @ rp!   console   handler off
  begin
   preset
@@ -3159,7 +3159,7 @@ create null$ 0 ,
   ?dup until
   'prompt @ >r
   console null$ over xor if
-   space count type .\" ?? \"
+   space count type ." ?? "
   then
   r> ['] .ok xor if
    27 emit
@@ -3173,8 +3173,8 @@ create null$ 0 ,
 
 
 
-\\                                                                    vandys
-\\ The compiler
+\                                                                    vandys
+\ The compiler
 
 : ' ( -- ca )   token   name? if   exit   then   throw   ;
 : , ( w -- )   here   dup cell+ cp !   !   ;
@@ -3198,48 +3198,48 @@ create null$ 0 ,
 
 
 
-\\                                                                    vandys
-\\ literal       ( w -- )
-\\               Compile tos to code dictionary as an integer literal
+\                                                                    vandys
+\ literal       ( w -- )
+\               Compile tos to code dictionary as an integer literal
 : literal   (genhook)   (compile) doLIT   ,   ; immediate
 
-\\ $,\"           ( -- )
-\\               Compile a literal string up to next \"
+\ $,"           ( -- )
+\               Compile a literal string up to next "
 : ($,c) ( c -- )   word   count + aligned   cp !   ;
-: $,\"   [char] \"   ($,c) ;
+: $,"   [char] "   ($,c) ;
 
-\\ recurse, tailrecurse       ( -- )
-\\               Make the current word available for compilation
+\ recurse, tailrecurse       ( -- )
+\               Make the current word available for compilation
 : recurse   (genhook)   last @ name>   ,   ; immediate
 : tailrecurse   (genhook)
    (compile) branch   last @ name> cell+ cell+ , ; immediate
 
-\\ Control structures
+\ Control structures
 
-\\ leave ( -- )   Depart innermost do..loop
+\ leave ( -- )   Depart innermost do..loop
 code leave
     8 [ebp] eax mov   0 [eax] esi mov   $C # ebp add   next c;
 
 
 
 
-\\                                                                    vandys
-\\ do            ( n n -- )
-\\               Start a do..loop structure in a colon definition
+\                                                                    vandys
+\ do            ( n n -- )
+\               Start a do..loop structure in a colon definition
 : do   (genhook)   (compile) (do)   here 0 ,   ; immediate compile-only
 
-\\ (resloop)     ( n -- )
-\\               Resolve compilation of do..loop construct
+\ (resloop)     ( n -- )
+\               Resolve compilation of do..loop construct
 : (resloop)   here cell+   over !   cell+ ,   ;
 
-\\ loop  ( -- )
-\\               Iterate do..loop
+\ loop  ( -- )
+\               Iterate do..loop
 : loop
  (genhook)
  (compile) (loop)   (resloop)   ; immediate compile-only
 
-\\ qdo   ( n n -- )
-\\               Start a ?do..loop structure in a colon definition
+\ qdo   ( n n -- )
+\               Start a ?do..loop structure in a colon definition
 : ?do
  (genhook)
  (compile) (?do)   here 0 ,   ; immediate compile-only
@@ -3248,48 +3248,48 @@ code leave
 
 
 
-\\                                                                    vandys
-\\ +loop ( -- )
-\\               Iterate do..loop with increment
+\                                                                    vandys
+\ +loop ( -- )
+\               Iterate do..loop with increment
 : +loop
  (genhook)
  (compile) (+loop)   (resloop)   ; immediate compile-only
 
-\\ begin ( -- a )
-\\               Start an infinite or indefinite loop structure
+\ begin ( -- a )
+\               Start an infinite or indefinite loop structure
 : begin   here   ; immediate compile-only
 
-\\ until ( a -- )
-\\               Terminate a BEGIN-UNTIL indefinite loop structure
+\ until ( a -- )
+\               Terminate a BEGIN-UNTIL indefinite loop structure
 : until
  (genhook)
  (compile) ?branch   ,   ; immediate compile-only
 
-\\ again ( a -- )
-\\               Terminate a BEGIN-AGAIN infinite loop structure
+\ again ( a -- )
+\               Terminate a BEGIN-AGAIN infinite loop structure
 : again
  (genhook)
  (compile) branch   ,   ; immediate compile-only
 
 
 
-\\                                                                    vandys
-\\ (if)          ( -- a )
-\\               Begin a conditional branch structure
+\                                                                    vandys
+\ (if)          ( -- a )
+\               Begin a conditional branch structure
 : (if)
  (genhook)
  (compile) ?branch   here 0 ,   ;
 
-\\ if            ( -- a )
-\\               Compile-time invocation of (if)
+\ if            ( -- a )
+\               Compile-time invocation of (if)
 : if   (if)   ; immediate compile-only
 
-\\ ahead ( -- a )
-\\               Compile a forward branch instruction
+\ ahead ( -- a )
+\               Compile a forward branch instruction
 : ahead   (compile) branch   here 0 ,   ; immediate
 
-\\ repeat        ( A a -- )
-\\               Terminate a BEGIN-WHILE-REPEAT indefinite loop
+\ repeat        ( A a -- )
+\               Terminate a BEGIN-WHILE-REPEAT indefinite loop
 : repeat
  (genhook)
  (compile) branch   ,   here swap !   ; immediate compile-only
@@ -3298,73 +3298,73 @@ code leave
 
 
 
-\\                                                                    vandys
-\\ (then)        ( a -- )
-\\               Terminate a conditional branch structure
+\                                                                    vandys
+\ (then)        ( a -- )
+\               Terminate a conditional branch structure
 : (then)   here swap !   ;
 
-\\ then  ( a -- )
-\\               Compile-time invocation of (then)
+\ then  ( a -- )
+\               Compile-time invocation of (then)
 : then   (then)   ; immediate compile-only
 
-\\ else  ( a -- a )
-\\               Start the false clause in an IF-ELSE-THEN structure
+\ else  ( a -- a )
+\               Start the false clause in an IF-ELSE-THEN structure
 : else   [compile] ahead swap (then)   ; immediate compile-only
 
-\\ while ( a -- A a )
-\\               Conditional branch out of a BEGIN-WHILE-REPEAT loop
+\ while ( a -- A a )
+\               Conditional branch out of a BEGIN-WHILE-REPEAT loop
 : while   (if) swap   ; immediate compile-only
 
-\\ abort\"        ( --  <string> )
-\\               Conditional abort with an error message
-: abort\"
+\ abort"        ( --  <string> )
+\               Conditional abort with an error message
+: abort"
  (genhook)
- (compile) (abort\")   $,\"   ; immediate
+ (compile) (abort")   $,"   ; immediate
 
 
 
-\\                                                                    vandys
-\\ c\"            ( --  <string> )
-\\               Compile an inline string literal
-: c\"
+\                                                                    vandys
+\ c"            ( --  <string> )
+\               Compile an inline string literal
+: c"
  (genhook)
- (compile) (c\")   $,\"   ; immediate compile-only
+ (compile) (c")   $,"   ; immediate compile-only
 
-\\ .\"            ( --   <string> )
-\\               Compile inline string literal to be typed out at run time
-: .\"
+\ ."            ( --   <string> )
+\               Compile inline string literal to be typed out at run time
+: ."
  (genhook)
- (compile) (.\")   $,\"   ; immediate compile-only
+ (compile) (.")   $,"   ; immediate compile-only
 
-\\ Name compiler
+\ Name compiler
 
-\\ unique?       ( a -- a )
-\\               Display a warning message if the word already exists
+\ unique?       ( a -- a )
+\               Display a warning message if the word already exists
 : unique?
  dup name? if
-  .\" reDef \" over count type
+  ." reDef " over count type
  then drop   ;
 
 
 
 
-\\                                                                    vandys
-\\ (compf)   ( f -- )
-\\               Set header flag in LAST's entry
+\                                                                    vandys
+\ (compf)   ( f -- )
+\               Set header flag in LAST's entry
 : (compf)   last @ c@   or   last @ c!   ;
 
-\\ $,n           ( a -- )
-\\               Build a new dictionary name using the string at \"a\"
+\ $,n           ( a -- )
+\               Build a new dictionary name using the string at "a"
 : $,n   align
- dup c@ 0= if   c\" name\" throw   then   \\ Edge case
- unique?                                \\ Redefinition?
- here swap  0 ,                         \\ CFA will be filled in shortly
- current @ @ ,                          \\ LFA
- here last !                            \\ Save NFA for vocab link
- count   here pack$                     \\ Copy name into place
- c@ 1+ aligned   allot                  \\ Get room for name
- #markb (compf)                         \\ Flag first byte of entry name
- here swap !                            \\ Fill in CFA pointer
+ dup c@ 0= if   c" name" throw   then   \ Edge case
+ unique?                                \ Redefinition?
+ here swap  0 ,                         \ CFA will be filled in shortly
+ current @ @ ,                          \ LFA
+ here last !                            \ Save NFA for vocab link
+ count   here pack$                     \ Copy name into place
+ c@ 1+ aligned   allot                  \ Get room for name
+ #markb (compf)                         \ Flag first byte of entry name
+ here swap !                            \ Fill in CFA pointer
 ;
 
 
@@ -3373,8 +3373,8 @@ code leave
 
 
 
-\\                                                                    vandys
-\\ FORTH compiler
+\                                                                    vandys
+\ FORTH compiler
 
 variable (tracing?)
 
@@ -3398,13 +3398,13 @@ variable (tracing?)
 
 
 
-\\ Compilation--finishing & cleanup                                   vandys
+\ Compilation--finishing & cleanup                                   vandys
 
 : overt ( -- )   last @ ?dup if   current @   !   then ;
 
 code (;) ( -- )   next c;
 
-: ?csp ( -- )   sp@ csp @ xor   abort\" stacks\"   ;
+: ?csp ( -- )   sp@ csp @ xor   abort" stacks"   ;
 
 variable 'endDef   variable 'semiHook
 : ; ( -- )   'semiHook @execute
@@ -3423,32 +3423,32 @@ variable 'endDef   variable 'semiHook
 
 
 
-\\                                                                    vandys
-\\ (c;ode)       ( -- ) */
-\\               Terminate a colon definition, jumping into assembly
+\                                                                    vandys
+\ (c;ode)       ( -- ) */
+\               Terminate a colon definition, jumping into assembly
 code (c;ode)
     esi jmp
     c;
 
-\\ ]             ( -- )
-\\               Start compiling the words in the input stream
+\ ]             ( -- )
+\               Start compiling the words in the input stream
 : ]   ['] $compile   'eval !   ;
 
-\\ call, ( ca -- )
-\\               Assemble a call instruction to ca
+\ call, ( ca -- )
+\               Assemble a call instruction to ca
 : call,   $E82E2E2E ,   here cell+ - ,   ;
 
-\\ call! ( ca addr -- )
-\\               Back-patch a call instruction at addr to ca
+\ call! ( ca addr -- )
+\               Back-patch a call instruction at addr to ca
 : call!   $E82E2E2E over !   cell+ swap over cell+ - swap !   ;
 
-\\ !csp  ( -- )
-\\               Save stack pointer in CSP for error checking.
+\ !csp  ( -- )
+\               Save stack pointer in CSP for error checking.
 : !csp   sp@ csp !   ;
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : (:) ( a -- )   $,n   ['] doLIST call,   ]   !csp   ;
 : : ( --   <string> )   token (:) ;
@@ -3457,7 +3457,7 @@ code (c;ode)
 
 : compile-only ( -- )   #compile-only (compf) ;
 
-\\ Defining words
+\ Defining words
 
 : user ( u --   <string> )   token $,n overt
    ['] doLIST call,   (compile) doUSER   , ;
@@ -3473,7 +3473,7 @@ code (c;ode)
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : (listent) ( a -- )   $,n overt   ['] doLIST call, ;
 : (create) ( a -- )   (listent)   (compile) doVAR ;
 : create   token (create) ;
@@ -3498,42 +3498,35 @@ code (c;ode)
 
 
 
-\\                                                                    vandys
-\\ dm+           ( a u -- a )
-\\               Dump u bytes from , leaving a+u on the stack.
+\                                                                    vandys
+\ dm+           ( a u -- a )
+\               Dump u bytes from , leaving a+u on the stack.
 : dm+   over 4 u.r space 0 ?do
   dup c@ 3 u.r 1+
  loop   ;
 
-\\ dump  ( a u -- )
-\\               Dump u bytes from a, in a formatted manner.
+\ dump  ( a u -- )
+\               Dump u bytes from a, in a formatted manner.
 : dump   base @ -rot hex
  15 + 16 / 0 do
   cr 16 2dup dm+
   rot rot 2 spaces _type   nuf? if leave then
  loop drop   base !   ;
 
-\\ .s            ( ... -- ... )
-\\               Display the contents of the data stack.
+\ .s            ( ... -- ... )
+\               Display the contents of the data stack.
 : .s   depth   begin   dup 0 >   while   dup pick .   1-   repeat
- drop .\" <sp\"   ;
+ drop ." <sp"   ;
 
 
 
 
 
 
-\\                                                                    vandys
-\\ Other field pointer conversions
-\\ nfa - Name Field Address	cfa - Code Field Address
-\\ lfa - Link Field Address
-
-
-
-
-
-
-
+\                                                                    vandys
+\ Other field pointer conversions
+\ nfa - Name Field Address	cfa - Code Field Address
+\ lfa - Link Field Address
 
 
 
@@ -3548,7 +3541,14 @@ code (c;ode)
 
 
 
-\\                                                                    vandys
+
+
+
+
+
+
+
+\                                                                    vandys
 : nfa>cfa cell- cell- ;
 : nfa>lfa cell- ;
 : cfa>nfa cell+ cell+ ;
@@ -3556,11 +3556,11 @@ code (c;ode)
 : lfa>cfa cell- ;
 : lfa>nfa cell+ ;
 
-\\ .id           ( na -- )
-\\               Display the name at address
-: .id   ?dup if   count $1F and _type   else   .\" {noName}\"   then   ;
+\ .id           ( na -- )
+\               Display the name at address
+: .id   ?dup if   count $1F and _type   else   ." {noName}"   then   ;
 
-\\ (>name)       Compare next entry against our desired code address
+\ (>name)       Compare next entry against our desired code address
 : (>name)   ( ca lfa -- ca nfa' bool | ca 0 F )
    @ dup if   2dup nfa>cfa @ xor   else   false   then   ;
 
@@ -3573,11 +3573,11 @@ code (c;ode)
 
 
 
-\\                                                                    vandys
-\\ >name ( ca -- nfa | F )
-\\               Convert code address to a name address.
-\\ Verifies that it's actually the code address of a word, unlike
-\\ ca>nfa.
+\                                                                    vandys
+\ >name ( ca -- nfa | F )
+\               Convert code address to a name address.
+\ Verifies that it's actually the code address of a word, unlike
+\ ca>nfa.
 : >name
   current begin
     cell+ @ ?dup 0= if   drop false exit   then
@@ -3598,7 +3598,7 @@ code (c;ode)
 
 
 
-\\ Decompilation, word listing                                        vandys
+\ Decompilation, word listing                                        vandys
 : (see) ( a -- )   cr cell+ begin
       cell+ dup @ dup if
          dup ['] (;) = if   2drop exit   then
@@ -3623,23 +3623,23 @@ code (c;ode)
 
 
 
-\\                                                                    vandys
-\\ Hardware reset
+\                                                                    vandys
+\ Hardware reset
 
-\\ ver           ( -- n )
-\\               Return Major version * 256 plus Minor
+\ ver           ( -- n )
+\               Return Major version * 256 plus Minor
 VER 256 * EXT + constant ver
 
-\\ 'pause        ( -- a )
-\\               Vector out to multi-tasking
+\ 'pause        ( -- a )
+\               Vector out to multi-tasking
 variable 'pause
 
-\\ pause ( -- )
-\\               Hook out to multi-tasking (if any)
+\ pause ( -- )
+\               Hook out to multi-tasking (if any)
 : pause   'pause @execute   ;
 
-\\ only ( -- )
-\\               Set search order and definitions to \"forth\"
+\ only ( -- )
+\               Set search order and definitions to "forth"
 variable ('endDef)
 : only   forth   context cell+ #VOCS cells erase
  context @   dup context cell+ !   current !   ('endDef) @execute ;
@@ -3648,14 +3648,14 @@ variable ('endDef)
 
 
 
-\\                                                                    vandys
-\\ initialize ( -- )
-\\               Vocabulary holding words to run at system init
+\                                                                    vandys
+\ initialize ( -- )
+\               Vocabulary holding words to run at system init
 vocabulary initialize
 
-\\ Flag if we're cold starting the system, or continuing from a
-\\   memory snapshot
-create (warm?)   false ,     \\ Default, cold start system image
+\ Flag if we're cold starting the system, or continuing from a
+\   memory snapshot
+create (warm?)   false ,     \ Default, cold start system image
 : cold?   (warm?) @ not   ;
 
 
@@ -3673,24 +3673,24 @@ create (warm?)   false ,     \\ Default, cold start system image
 
 
 
-\\                                                                    vandys
-\\ (initialize) ( -- )
-\\               Run all initialization words
-\\ Our \"special\" vocabulary \"initialize\" holds words, each of which
-\\  is executed during system startup.  Thus, any module which wants
-\\  some intialization code to run can compile its own word into
-\\  this vocabulary.
-\\ Each word is invoked with a boolean flag; if the flag is false,
-\\  the word returns its initialization order index, but does not
-\\  otherwise execute any initialization actions.  If the flag is true,
-\\  the word executes its initialization (it is guaranteed that it
-\\  will only be invoked with a true flag once).
-\\ This index from the initialization word tells the system which order
-\\  init routines should be invoked; the word with the lowest index
-\\  executes first, followed by successively larger index values.
-\\  The lowest legal index value is 1, the highest is 100,000.  Each
-\\  index value must be unique.
-\\ Execute function with each entry in the initialization dictionary
+\                                                                    vandys
+\ (initialize) ( -- )
+\               Run all initialization words
+\ Our "special" vocabulary "initialize" holds words, each of which
+\  is executed during system startup.  Thus, any module which wants
+\  some intialization code to run can compile its own word into
+\  this vocabulary.
+\ Each word is invoked with a boolean flag; if the flag is false,
+\  the word returns its initialization order index, but does not
+\  otherwise execute any initialization actions.  If the flag is true,
+\  the word executes its initialization (it is guaranteed that it
+\  will only be invoked with a true flag once).
+\ This index from the initialization word tells the system which order
+\  init routines should be invoked; the word with the lowest index
+\  executes first, followed by successively larger index values.
+\  The lowest legal index value is 1, the highest is 100,000.  Each
+\  index value must be unique.
+\ Execute function with each entry in the initialization dictionary
 : (each-init)  ( fn -- )   initialize
  context @   begin   @ ?dup   while
   over execute   nfa>lfa repeat   drop only   ;
@@ -3698,8 +3698,8 @@ create (warm?)   false ,     \\ Default, cold start system image
 
 
 
-\\                                                                    vandys
-\\ Return lowest entry above \"n\", and its index
+\                                                                    vandys
+\ Return lowest entry above "n", and its index
 variable (low-n)   variable (low-seen)   variable (low-fn)
 : (low-scan) ( nfa -- nfa )
  false over nfa>cfa @execute
@@ -3710,7 +3710,7 @@ variable (low-n)   variable (low-seen)   variable (low-fn)
  (low-n) !   100001 (low-seen) !   0 (low-fn) !
  ['] (low-scan) (each-init)   (low-seen) @ (low-fn) @   ;
 
-\\ Execute init routines in their defined order, until all are run
+\ Execute init routines in their defined order, until all are run
 : (initialize)
  0 begin
   (low-above)
@@ -3723,11 +3723,11 @@ variable (low-n)   variable (low-seen)   variable (low-fn)
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 variable (mem_upper)
-: hi ( -- )   cr .\" ForthOS v\" ver dup 256 / 1 u.r .\" .\" 256 mod 1 u.r
-   cold? not if   .\" (restored from snapshot)\"   then   cr
-   (mem_upper) ? .\"  bytes of upper memory\" cr ;
+: hi ( -- )   cr ." ForthOS v" ver dup 256 / 1 u.r ." ." 256 mod 1 u.r
+   cold? not if   ." (restored from snapshot)"   then   cr
+   (mem_upper) ? ."  bytes of upper memory" cr ;
 : init-bootinfo ( ebx eax -- )   4194304 (mem_upper) !
    $2BADB002 = if dup @ 1 and if
       cell+ cell+ @ 1024 *   (mem_upper) !   then then ;
@@ -3740,7 +3740,7 @@ variable (mem_upper)
   quit
  again   ;
 
-\\ Patch cold1 to cold's CFA
+\ Patch cold1 to cold's CFA
 lastcode cold1 @ !
 
 
@@ -3748,29 +3748,28 @@ lastcode cold1 @ !
 
 
 
-\\                                                                    vandys
-\\ ====================================================================
-\\ The metacompiled image now lies between base_mem and here.  We
-\\ riffle through the image and relocate all references to our target
-\\ address.
-\\ ====================================================================
+\                                                                    vandys
+\ ====================================================================
+\ The metacompiled image now lies between base_mem and here.  We
+\ riffle through the image and relocate all references to our target
+\ address.
+\ ====================================================================
 
-\\ This is the point when we should incorporate additional source
-\\ like the assembler, console and disk driver, ...
+\ This is the point when we should incorporate additional source
+\ like the assembler, console and disk driver, ...
 
-\\
-\\ meta->target                  \\ Stop referencing \"target\" vocabulary
-\\ ( extensions meta forth -> target )
+\
+\ meta->target                  \ Stop referencing "target" vocabulary
+\ ( extensions meta forth -> target )
 
-\\ fixups                                \\ Back-patch needed values
+\ fixups                                \ Back-patch needed values
 
-\\ base_mem @ dup here relocate
-\\  \\ <base mem>   <dest block #>   <# blocks>  write_image
-\\ here over - >blocks dup . .\" blocks\" cr IMAGE_BLOCK swap write_image
+\ base_mem @ dup here relocate
+\  \ <base mem>   <dest block #>   <# blocks>  write_image
+\ here over - >blocks dup . ." blocks" cr IMAGE_BLOCK swap write_image
 
-\\ forth->forth  \\ Return to basic system search order
-
-
+\ forth->forth  \ Return to basic system search order
 
 
-"
+
+

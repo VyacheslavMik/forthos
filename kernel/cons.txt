@@ -1,29 +1,29 @@
-"\\                                                                    vandys
-\\ cons.f
-\\       VGA text console driver in Forth
-\\
+\                                                                    vandys
+\ cons.f
+\       VGA text console driver in Forth
+\
 only
-drivers definitions             \\ Stash all this in driver namespace
+drivers definitions             \ Stash all this in driver namespace
 also os
 
-NSCREEN constant NSCREEN        \\ # virtual screens supported
-CONS_COLS constant CONS_COLS    \\ Columns on display
+NSCREEN constant NSCREEN        \ # virtual screens supported
+CONS_COLS constant CONS_COLS    \ Columns on display
  CONS_COLS 1- constant CONS_COLS-1
-CONS_ROWS constant CONS_ROWS    \\ Rows on display
-RAM_SIZE constant RAM_SIZE      \\ Words on display
-RAM_BYTES constant RAM_BYTES    \\ Bytes on display
+CONS_ROWS constant CONS_ROWS    \ Rows on display
+RAM_SIZE constant RAM_SIZE      \ Words on display
+RAM_BYTES constant RAM_BYTES    \ Bytes on display
 
-3 constant CHAR_INTR            \\ Interrupt char (^C)
+3 constant CHAR_INTR            \ Interrupt char (^C)
 
-$3D4 constant GDC_REG           \\ I/O ports to control cursor hardware
+$3D4 constant GDC_REG           \ I/O ports to control cursor hardware
 $3D5 constant GDC_VAL
-$B8000 constant TVRAM           \\ Mapped screen memory
+$B8000 constant TVRAM           \ Mapped screen memory
 
 
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create cur_attr 7 8 lshift ,
 $0720 constant BLWORD
 
@@ -32,48 +32,48 @@ variable cursor_moved
 variable scrollCount
 80 dup constant #TTYQ   create ttyq allot   create nttyq 0 ,
 
-SCRMEM constant SCRMEM          \\ # bytes of state per screen
-create screens                  \\ Per-screen state
+SCRMEM constant SCRMEM          \ # bytes of state per screen
+create screens                  \ Per-screen state
    SCRMEM NSCREEN * allot
-   \\ 0: Current display pointer (either virtual or HW address)
-   \\ 4: row
-   \\ 8: col
-   \\ 12: attr
-   \\ 16: scroll count
-   \\ 20: <reserved>
-   \\ 24: RAM_BYTES bytes of screen image storage
+   \ 0: Current display pointer (either virtual or HW address)
+   \ 4: row
+   \ 8: col
+   \ 12: attr
+   \ 16: scroll count
+   \ 20: <reserved>
+   \ 24: RAM_BYTES bytes of screen image storage
 
 
 
 
 
 
-\\                                                                    vandys
-\\ Get pointer to screen state
+\                                                                    vandys
+\ Get pointer to screen state
 : >scrptr ( u -- a )   SCRMEM * screens +   ;
 
-\\ Convert pointer to screen state into pointer to hardware buffer memory
+\ Convert pointer to screen state into pointer to hardware buffer memory
 : >scrhw ( a -- a' )   6 cells +   ;
 
-\\ Point to TTY channel USER variable
+\ Point to TTY channel USER variable
 : >ttchan   ttchan up @ - +   ;
 
-variable SCR            \\ Base address of screen memory
-variable SCRrow1        \\  ...address of 2nd line of screen
-variable SCRrow24       \\  ...of start of last line
-variable SCRrow25       \\  ...of last line
+variable SCR            \ Base address of screen memory
+variable SCRrow1        \  ...address of 2nd line of screen
+variable SCRrow24       \  ...of start of last line
+variable SCRrow25       \  ...of last line
 
-variable cur_hw         \\ Screen # displayed on physical screen
-variable cur_chan       \\ Screen # currently set on SCR
+variable cur_hw         \ Screen # displayed on physical screen
+variable cur_chan       \ Screen # currently set on SCR
 
-\\ Amount of memory to scroll up with move
+\ Amount of memory to scroll up with move
 CONS_ROWS 1- dup constant CONS_ROWS-1
  CONS_COLS * 2* constant SCRscrollsize
 
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : set_screenmem ( a -- )   dup CONS_COLS 2* + SCRrow1 !
    dup SCRscrollsize + dup SCRrow24 !   CONS_COLS 2* + SCRrow25 !   SCR ! ;
 
@@ -98,12 +98,12 @@ CONS_ROWS 1- dup constant CONS_ROWS-1
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : (scroll_up) ( -- )
    SCRrow1 @   SCR @   SCRscrollsize move
    SCRrow25 @ SCRrow24 @ do    BLWORD i w!   2 +loop ;
 : check_intr ( -- )   nttyq @ if   ttyq c@ CHAR_INTR = if
-      handler @ if   nttyq off   1 abort\" Interrupt\"   then then then ;
+      handler @ if   nttyq off   1 abort" Interrupt"   then then then ;
 : scroll_up ( -- )   scrollCount @ CONS_ROWS < if
       (scroll_up)   exit then
    nttyq @ if   (scroll_up)   exit then
@@ -123,7 +123,7 @@ CONS_ROWS 1- dup constant CONS_ROWS-1
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : (cons_fwd) ( -- )   cur_col inc   cur_col @ CONS_COLS < if exit then
    cur_col off   cur_row inc   scrollCount inc
    cur_row @ CONS_ROWS < if exit then
@@ -148,7 +148,7 @@ CONS_ROWS 1- dup constant CONS_ROWS-1
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
    dup 9 = if   drop
       begin   32 recurse   cur_col @ 8 mod 0= until   exit then
 
@@ -173,13 +173,13 @@ CONS_ROWS 1- dup constant CONS_ROWS-1
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
    dup 8 = if   drop   cur_col @ 0 > if   cur_col dec
       else   cur_row @ if   cur_row dec   CONS_COLS 1- cur_col !
       then then
    exit then
 
-   \\ Unknown control char
+   \ Unknown control char
    drop ;
 
 
@@ -198,7 +198,7 @@ CONS_ROWS 1- dup constant CONS_ROWS-1
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : blank_page ( a -- ) RAM_SIZE 0 do BLWORD over i 2* + w! loop drop ;
 : cons_page ( -- )   SCR @ blank_page
    cur_col off   cur_row off   cursor_moved on ;
@@ -223,8 +223,8 @@ CONS_ROWS 1- dup constant CONS_ROWS-1
 
 
 
-\\                                                                    vandys
-\\ Ports for PC keyboard
+\                                                                    vandys
+\ Ports for PC keyboard
 $61 constant KBD_CTL
 $60 constant KBD_DATA
 $64 constant KBD_STATUS
@@ -248,10 +248,10 @@ $64 constant KBD_STATUS
 
 
 
-\\                                                                    vandys
-\\ Mapping from key position to ASCII
+\                                                                    vandys
+\ Mapping from key position to ASCII
 
-\\ Un-shifted mapping of PC scancodes to ASCII
+\ Un-shifted mapping of PC scancodes to ASCII
 create key_map
  0 c, 27 c, ,chars 1234567890-= 8 c, 9 c,
  ,chars qwertyuiop[] 13 c, $80 c,
@@ -259,7 +259,7 @@ create key_map
  92 c, ,chars zxcvbnm,./ $80 c,
  char * c, $80 c, 32 c, 23 pad80 char 0 c, 127 c,
 
-\\ Shifted mapping of PC scancodes to ASCII
+\ Shifted mapping of PC scancodes to ASCII
 create shift_map
  0 c, 27 c, ,chars !@#$%^&*()_+ 8 c, 9 c,
  ,chars QWERTYUIOP{} 13 c, $80 c,
@@ -273,7 +273,7 @@ create shift_map
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 variable conshift   variable conctrl
 
 : set_chan ( u -- )
@@ -298,7 +298,7 @@ variable conshift   variable conctrl
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : set_hw ( u-newchan -- )
    dup NSCREEN u< not if   drop exit   then
 
@@ -323,7 +323,7 @@ variable conshift   variable conctrl
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
    ( newchan ) dup cur_hw !
    >scrptr   dup >r   >scrhw TVRAM RAM_BYTES cmove
    r> TVRAM swap !
@@ -348,9 +348,9 @@ variable conshift   variable conctrl
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
-\\ Get next character typed on PC keyboard
+\ Get next character typed on PC keyboard
 : (cons_getc) ( -- c T | F )
 
 
@@ -373,62 +373,62 @@ variable conshift   variable conctrl
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
         0 begin
-                drop    \\ Char from previous time around
+                drop    \ Char from previous time around
 
-                \\ Strobe enable on keyboard
+                \ Strobe enable on keyboard
                 KBD_CTL inb dup $7F and KBD_CTL outb
                 dup $80 or KBD_CTL outb
                 $7F and KBD_CTL outb
 
-                \\ Return FALSE if no data available
+                \ Return FALSE if no data available
                 KBD_STATUS inb 1 and 0= if false exit then
 
-                \\ Read next byte of data
+                \ Read next byte of data
                 KBD_DATA inb
 
-                \\ F1..F10 select screens (TBD... require ALT-Fx?)
+                \ F1..F10 select screens (TBD... require ALT-Fx?)
                 dup 59 >= over 68 <= and if 59 - set_hw false exit then
 
-                \\ Shift pressed?
+                \ Shift pressed?
                 dup $36 = over $2A = or if 1 conshift ! drop $80 then
 
 
 
 
 
-\\                                                                    vandys
-                \\ Shift released?
+\                                                                    vandys
+                \ Shift released?
                 dup $B6 = over $AA = or if 0 conshift ! drop $80 then
 
-                \\ Ctrl pressed?
+                \ Ctrl pressed?
                 dup $1D = if 1 conctrl ! drop $80 then
 
-                \\ Ctrl released?
+                \ Ctrl released?
                 dup $9D = if 0 conctrl ! drop $80 then
 
-        \\ Iterate until actual data key
+        \ Iterate until actual data key
         dup 58 < until
 
-        \\ Trim to 7-bit ASCII, look up character in keyboard map
+        \ Trim to 7-bit ASCII, look up character in keyboard map
         $7F and conshift @ if shift_map else key_map then + c@
 
-        \\ Control key?
+        \ Control key?
         conctrl @ if $1F and then
 
-        true    \\ Return flag that we have the data
+        true    \ Return flag that we have the data
 ;
 
 
 
 
-\\                                                                    vandys
-: bad_cons_op   1 abort\" Bad console operation\"   ;
+\                                                                    vandys
+: bad_cons_op   1 abort" Bad console operation"   ;
 
 : cons_q ( c -- )   nttyq @ #TTYQ >= if   drop exit   then
    nttyq @ ttyq + c!   nttyq inc ;
-: cons_deq ( -- c )   ttyq c@   nttyq @ dup 0= abort\" Empty\" 1- nttyq !
+: cons_deq ( -- c )   ttyq c@   nttyq @ dup 0= abort" Empty" 1- nttyq !
    ttyq dup 1+ swap   nttyq @ move ;
 : cons_watcher ( -- )   begin   (cons_getc) if
       dup CHAR_INTR = if   ttyq c!   1 nttyq !   else   cons_q   then
@@ -448,8 +448,8 @@ variable conshift   variable conctrl
 
 
 
-\\                                                                    vandys
-        \\ Dispatch request
+\                                                                    vandys
+        \ Dispatch request
         (exec:)
         ( 0: )  bad_cons_op
         ( 1: )  cons_putc
@@ -473,7 +473,7 @@ variable conshift   variable conctrl
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 initialize definitions os
 : boot-cons ( ? -- n | )
    0= if  400 exit   then
@@ -498,7 +498,7 @@ initialize definitions os
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
       i 0= if   TVRAM   else   dup >scrhw   then   over !
 
       i if   cold? if
@@ -523,7 +523,7 @@ initialize definitions os
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
       cell+ CONS_ROWS 1- over !   cell+ 0 over !
       cell+ cur_attr @ over !   cell+ 0 over !   cell+ 0 over !
       cell+ blank_page
@@ -533,7 +533,7 @@ initialize definitions os
 
    CONS_ROWS 1- cur_row !   0 cur_col !
 
-   NSCREEN 1 do   i ttchan !   .\" Task\" i . cr   loop   0 ttchan !
+   NSCREEN 1 do   i ttchan !   ." Task" i . cr   loop   0 ttchan !
 ;
 
 
@@ -548,10 +548,10 @@ initialize definitions os
 
 
 
-\\ Support for TTY integration into tasking edisms                    vandys
+\ Support for TTY integration into tasking edisms                    vandys
 
-\\ : (key-edisms) ( ttchan -- ? )   cur_hw @ - if   false exit   then
-\\ TBD: need ttchan/vector combo to be pollable from any context.
+\ : (key-edisms) ( ttchan -- ? )   cur_hw @ - if   false exit   then
+\ TBD: need ttchan/vector combo to be pollable from any context.
 
 only
 
@@ -573,4 +573,3 @@ only
 
 
 
-"

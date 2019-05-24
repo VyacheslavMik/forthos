@@ -1,20 +1,20 @@
-"\\ Full screen editor in forth-83. Based upon Henry     21Aug86 rsl
-\\ Laxen's original. MODIFIED FOR ANY COMPUTER.        NO SHADOWS
-\\ Ported to x86 eForth by Andy Valencia 11/2001
-\\ -----------------------------***********************************
-\\ Craig A. Lindley             * See screen 20 for help.         *
-\\ Clockwork Software           * SEE SCREEN 28 FOR MODIFICATIONS *
-\\ 6 Sutherland Place           * AND UPDATES.                    *
-\\ Manitou Springs, Co. 80829   ***********************************
-\\ ----------------------------------------------------------------
-\\ Distributed by FIG Librarian    (Please send updates)
-\\
-\\      John A. Peters             Phone (415) 239-5393
-\\      121 Santa Rosa Ave.        8-9 am or after 7 pm
-\\      San Francisco, CA 94112    or week ends.
-\\ ----------------------------------------------------------------
-\\    or Computer Language Mag. BBS (415) 957-9370 300/1200 (Files)
-\\ or Forth Interest Group Tree BBS (415) 538-3580 300 bps (Text)
+\ Full screen editor in forth-83. Based upon Henry     21Aug86 rsl
+\ Laxen's original. MODIFIED FOR ANY COMPUTER.        NO SHADOWS
+\ Ported to x86 eForth by Andy Valencia 11/2001
+\ -----------------------------***********************************
+\ Craig A. Lindley             * See screen 20 for help.         *
+\ Clockwork Software           * SEE SCREEN 28 FOR MODIFICATIONS *
+\ 6 Sutherland Place           * AND UPDATES.                    *
+\ Manitou Springs, Co. 80829   ***********************************
+\ ----------------------------------------------------------------
+\ Distributed by FIG Librarian    (Please send updates)
+\
+\      John A. Peters             Phone (415) 239-5393
+\      121 Santa Rosa Ave.        8-9 am or after 7 pm
+\      San Francisco, CA 94112    or week ends.
+\ ----------------------------------------------------------------
+\    or Computer Language Mag. BBS (415) 957-9370 300/1200 (Files)
+\ or Forth Interest Group Tree BBS (415) 538-3580 300 bps (Text)
 
 only vocabulary editor
 editor definitions
@@ -23,72 +23,72 @@ editor definitions
 
 
 
-\\ Configuration for ANSI terminal
-: beep 7 emit ;			\\ Beep
+\ Configuration for ANSI terminal
+: beep 7 emit ;			\ Beep
 
-\\ Weird f83 stuff to emulate
-: ctoggle ( u a -- )		\\ Toggle bit in byte
+\ Weird f83 stuff to emulate
+: ctoggle ( u a -- )		\ Toggle bit in byte
 	dup c@ rot xor swap c! ;
-: file? .\" (block)\" ;		\\ Display \"file name\"
-\\ Convert lower case to upper case
+: file? ." (block)" ;		\ Display "file name"
+\ Convert lower case to upper case
 : upc ( c -- c ) dup 96 > over 123 < and if 32 - then ;
 : at ( y x -- ) swap at-xy ;
 
-\\ this is another full screen editor program. it is written
-\\ entirely in high level forth. it is more convenient to use in
-\\ most cases as the starting forth editor.
+\ this is another full screen editor program. it is written
+\ entirely in high level forth. it is more convenient to use in
+\ most cases as the starting forth editor.
 
-\\ vocabulary edit    edit also definitions
+\ vocabulary edit    edit also definitions
 
-variable &mode           variable &cur    \\ var declaration
+variable &mode           variable &cur    \ var declaration
 variable &badr           variable &upd
 variable &bbase
 variable &status         variable &tag
-variable &id 12 allot    &id 12  blank    \\ id field cleared
+variable &id 12 allot    &id 12  blank    \ id field cleared
 
 SCRSIZ constant cps   BLKROWS constant lps
-BLKCOLS constant c/l			    \\ Chars in a line
-cps 1 - constant cps-1		\\ Some x-1 variants
+BLKCOLS constant c/l			    \ Chars in a line
+cps 1 - constant cps-1		\ Some x-1 variants
 lps 1 - constant lps-1
-27 constant ESC			\\ ASCII escape char
+27 constant ESC			\ ASCII escape char
 
-: pad1 pad  84 + ;              \\ text save area
-: pad2 pad1 84 + ;              \\ # input area
+: pad1 pad  84 + ;              \ text save area
+: pad2 pad1 84 + ;              \ # input area
 
-: >line# c/l / ;                \\ convert char pos to line #
-: line#> c/l * ;                \\ convert line # to char pos
+: >line# c/l / ;                \ convert char pos to line #
+: line#> c/l * ;                \ convert line # to char pos
 
-: curpos &cur @ ;               \\ get cursor position
-: +cur &cur +! curpos           \\ adv cur and chk bounds
+: curpos &cur @ ;               \ get cursor position
+: +cur &cur +! curpos           \ adv cur and chk bounds
   0 max cps-1 min &cur ! ;
 
-: mvcur +cur curpos c/l /mod at ; \\ move the cursor to pos on tos
+: mvcur +cur curpos c/l /mod at ; \ move the cursor to pos on tos
 
-: bufadr &badr @ + ;              \\ conv cur pos to buf addr
-: bufpos curpos bufadr ;          \\ rets address in disk buf
-                                  \\ of char at cur pos
-
-
+: bufadr &badr @ + ;              \ conv cur pos to buf addr
+: bufpos curpos bufadr ;          \ rets address in disk buf
+                                  \ of char at cur pos
 
 
 
 
-: upd 1 &upd ! ;                    \\ set update flag
-: ?prt dup bl < swap 126 > or 0= ;  \\ chk char on tos
-                                    \\ rets true if printable
-: mark &upd @ if 0 &upd !           \\ if block changed update
-  &id 0 bufadr c/l + 11 - 11        \\ line 0
+
+
+: upd 1 &upd ! ;                    \ set update flag
+: ?prt dup bl < swap 126 > or 0= ;  \ chk char on tos
+                                    \ rets true if printable
+: mark &upd @ if 0 &upd !           \ if block changed update
+  &id 0 bufadr c/l + 11 - 11        \ line 0
   cmove update then  ;
 
-: #toeol c/l mod c/l swap - ;           \\ # chars to eol
+: #toeol c/l mod c/l swap - ;           \ # chars to eol
 
-: clreol curpos >line# line#> - blot ;  \\ clear to end of line
+: clreol curpos >line# line#> - blot ;  \ clear to end of line
 
-: bufmv rot bufadr rot bufadr         \\ move disk buffer
-  rot move upd ;                      \\ @ cursor position
+: bufmv rot bufadr rot bufadr         \ move disk buffer
+  rot move upd ;                      \ @ cursor position
 
-: distoeol dup bufadr over            \\ displays rest of line
-  #toeol -trailing                    \\ from cur pos
+: distoeol dup bufadr over            \ displays rest of line
+  #toeol -trailing                    \ from cur pos
   rot over + >r type r> clreol ;
 
 
@@ -98,87 +98,87 @@ lps 1 - constant lps-1
 
 
 
-: position 0 0 at c/l blot ;		\\ Command input position
-: unposition 0 0 at 0 distoeol ;	\\ Refresh display
+: position 0 0 at c/l blot ;		\ Command input position
+: unposition 0 0 at 0 distoeol ;	\ Refresh display
 
-: ?empty line#> bufadr c/l            \\ line # --- f
-  -trailing nip 0= ;                  \\ rets true if line empty
+: ?empty line#> bufadr c/l            \ line # --- f
+  -trailing nip 0= ;                  \ rets true if line empty
 
-\\ : prnt position .\" Printing\"        \\ print on line printer
-\\   ['] (semit) is emit               \\ select lp as list device
-\\   printing on                       \\ turn printing on
-\\   space cr space cr space cr        \\ 3 blanks lines between
-\\   scr @ list                        \\ list to printer
-\\   ['] (emit) is emit                \\ select crt as list device
-\\   printing off                      \\ turn printing off
-\\   key? if key drop then ;           \\ if abort consume key
+\ : prnt position ." Printing"        \ print on line printer
+\   ['] (semit) is emit               \ select lp as list device
+\   printing on                       \ turn printing on
+\   space cr space cr space cr        \ 3 blanks lines between
+\   scr @ list                        \ list to printer
+\   ['] (emit) is emit                \ select crt as list device
+\   printing off                      \ turn printing off
+\   key? if key drop then ;           \ if abort consume key
 
-: distoeos curpos swap lps swap     \\ display screen from line
-  do i line#> dup &cur !            \\ # on tos to end
+: distoeos curpos swap lps swap     \ display screen from line
+  do i line#> dup &cur !            \ # on tos to end
   0 mvcur distoeol loop
   &cur ! 0 mvcur ;
 
-: exp dup dup c/l + cps over -    \\ insert blank line at
+: exp dup dup c/l + cps over -    \ insert blank line at
   bufmv bufadr c/l blank ;
-                                  \\ pos on tos
-: shrink dup c/l + tuck cps       \\ del line at pos
-  swap - bufmv lps-1 line#>       \\ add blank line last
+                                  \ pos on tos
+: shrink dup c/l + tuck cps       \ del line at pos
+  swap - bufmv lps-1 line#>       \ add blank line last
   bufadr c/l blank  ;
 
-: insertline lps-1 ?empty         \\ adds line to screen
-  if dup exp >line# distoeos      \\ if last line is empty
-  else beep then ;                \\ else just beeps
+: insertline lps-1 ?empty         \ adds line to screen
+  if dup exp >line# distoeos      \ if last line is empty
+  else beep then ;                \ else just beeps
 
-: deleteline >line# dup line#>    \\ del line at pos
-  shrink distoeos ;               \\ on tos
+: deleteline >line# dup line#>    \ del line at pos
+  shrink distoeos ;               \ on tos
 
-: inschar dup dup 1+ over #toeol  \\ insert char into buf
+: inschar dup dup 1+ over #toeol  \ insert char into buf
   1 - bufmv bufadr c! ;
 
-: delchar dup dup 1+ tuck         \\ del char at cursor
+: delchar dup dup 1+ tuck         \ del char at cursor
   #toeol bufmv dup #toeol +
   1- bufadr bl swap c! ;
 
-: rarrow 1 +cur ;                 \\ cursor right one
-: larrow -1 +cur ;                \\ cursor left  one
-: uarrow c/l negate +cur ;        \\ cursor up    one
-: darrow c/l +cur ;               \\ cursor down  one
+: rarrow 1 +cur ;                 \ cursor right one
+: larrow -1 +cur ;                \ cursor left  one
+: uarrow c/l negate +cur ;        \ cursor up    one
+: darrow c/l +cur ;               \ cursor down  one
 
-: iline curpos insertline ;       \\ insert line at cur
-: dline curpos deleteline ;       \\ delete line at cur
+: iline curpos insertline ;       \ insert line at cur
+: dline curpos deleteline ;       \ delete line at cur
 
-: dchar curpos delchar curpos   \\ delete char at cursor
+: dchar curpos delchar curpos   \ delete char at cursor
   distoeol ;
 
-: imode 1 &mode ctoggle         \\ toggle insert mode flag
+: imode 1 &mode ctoggle         \ toggle insert mode flag
   1 &status ! ;
 
-: heading page                  \\ heading titles
-  26 0 at .\" *** Forth Full Screen Editor ***\"
-   0 1 at .\" File: \" file? ;
+: heading page                  \ heading titles
+  26 0 at ." *** Forth Full Screen Editor ***"
+   0 1 at ." File: " file? ;
 
-: ret &mode @ if iline else          \\ insert mode insert line
-  curpos >line# 1+ lps-1 min         \\ if not just do return
+: ret &mode @ if iline else          \ insert mode insert line
+  curpos >line# 1+ lps-1 min         \ if not just do return
   line#> &cur ! then ;
 
-: quited heading cr cr forth         \\ quit editor without
-  .\" Edit session complete\"          \\ saving screens. Resets
-  cr sp0 @ sp! quit ;                \\ stack and executes quit
+: quited heading cr cr forth         \ quit editor without
+  ." Edit session complete"          \ saving screens. Resets
+  cr sp0 @ sp! quit ;                \ stack and executes quit
 
-: exitupd mark save-buffers quited ; \\ save screens before
-                                     \\ quiting editor
+: exitupd mark save-buffers quited ; \ save screens before
+                                     \ quiting editor
 
-: #in pad2 1+ 20 2dup blank expect   \\ input a # from the user
-  span @ pad2 c! pad2 number? drop ; \\ to the tos
+: #in pad2 1+ 20 2dup blank expect   \ input a # from the user
+  span @ pad2 c! pad2 number? drop ; \ to the tos
 
-: dupblock position                  \\ duplicate block at
-  .\" Duplicate block #: \" #in ?dup   \\ specified location
-  if scr @ swap copy then            \\ answer 0 then abort
+: dupblock position                  \ duplicate block at
+  ." Duplicate block #: " #in ?dup   \ specified location
+  if scr @ swap copy then            \ answer 0 then abort
   unposition ;
 
-: deltoeos bufpos dup &badr @ -      \\ delete from cursor to
+: deltoeos bufpos dup &badr @ -      \ delete from cursor to
   1+ cps swap - blank
-  curpos >line# distoeos upd ;       \\ the end of the display
+  curpos >line# distoeos upd ;       \ the end of the display
 
 : scan+= 2dup = if drop drop drop 0 else 0 -rot
   do over i c@ = if leave else 1+ then loop
@@ -193,99 +193,99 @@ lps 1 - constant lps-1
   do over i c@ <> if leave else 1- then -1 +loop
   nip then ;
 
-: mvlwrd bl 0 bufadr bufpos    \\ move left a word
-  scan-= >r bl 0 bufadr        \\ rets # of chars to move cur
+: mvlwrd bl 0 bufadr bufpos    \ move left a word
+  scan-= >r bl 0 bufadr        \ rets # of chars to move cur
   bufpos r@ + scan-<> r> + ;
 
-: mvrwrd bl cps-1 bufadr        \\ move right a word
-  bufpos scan+= >r bl cps-1     \\ rets # of chars to move cur
+: mvrwrd bl cps-1 bufadr        \ move right a word
+  bufpos scan+= >r bl cps-1     \ rets # of chars to move cur
   bufadr bufpos r@ +
   scan+<> r> + ;
 
-: rword mvrwrd +cur ;          \\ move cur right one word
-: lword mvlwrd +cur ;          \\ move cur left  one word
+: rword mvrwrd +cur ;          \ move cur right one word
+: lword mvlwrd +cur ;          \ move cur left  one word
 
-: delchars 2dup + over dup      \\ delete n chars from cur
+: delchars 2dup + over dup      \ delete n chars from cur
   #toeol bufmv dup #toeol
   + over - bufadr swap blank  ;
 
-: dword mvrwrd bufpos curpos    \\ delete word at cur
+: dword mvrwrd bufpos curpos    \ delete word at cur
   #toeol -trailing
   nip min curpos
   delchars curpos distoeol ;
 
-: tab 8 curpos 8 mod - +cur ;   \\ advance to tab position
+: tab 8 curpos 8 mod - +cur ;   \ advance to tab position
 
-: updscr 0 distoeos ;           \\ display screen
+: updscr 0 distoeos ;           \ display screen
 
-: clrscn 0 &cur ! bufpos cps  \\ clear screen
+: clrscn 0 &cur ! bufpos cps  \ clear screen
   blank 0 distoeos upd ;
 
-: clrline curpos dup >line#   \\ set current line to blanks
+: clrline curpos dup >line#   \ set current line to blanks
   line#> &cur ! bufpos c/l
   blank upd 0 mvcur curpos
   clreol &cur ! ;
 
-: getid &id 12 -trailing 0=   \\  input user id
-  if cr .\" Enter id: \"
+: getid &id 12 -trailing 0=   \  input user id
+  if cr ." Enter id: "
   12 0 do 46 emit loop
   12 0 do  8 emit loop
   &id 12 expect
   else drop then ;
 
-: init2			\\ initialize editor but not blocks
+: init2			\ initialize editor but not blocks
   1 &status !  0 &mode ! 0 &cur !
   page updscr ;
 
-: init mark scr @	\\ initialize block buffer, then rest of edit
+: init mark scr @	\ initialize block buffer, then rest of edit
   block dup &badr ! &bbase ! init2 ;
 
-: edits position                \\ prompt for edit block
-  .\" Edit scr#: \" #in
+: edits position                \ prompt for edit block
+  ." Edit scr#: " #in
   scr ! init ;
 
-: rstedit discard               \\ restart edit
+: rstedit discard               \ restart edit
   0 &upd ! init ;
 
-: lstblk scr @ dup 0>              \\ get last block
+: lstblk scr @ dup 0>              \ get last block
   if 1- scr ! init then ;
 
-\\ : nxtblk scr @ dup capacity 1- <   \\ get next block
-\\   if 1+ scr ! init then ;
+\ : nxtblk scr @ dup capacity 1- <   \ get next block
+\   if 1+ scr ! init then ;
 : nxtblk 1 scr +! init ;
 
-\\ Alternate between shadow and main screen
-\\ A ForthOS block is 4k, and a screen is just shy of 2k.  So
-\\ we use the first half of the block for the source, and the
-\\ second as a shadow.
+\ Alternate between shadow and main screen
+\ A ForthOS block is 4k, and a screen is just shy of 2k.  So
+\ we use the first half of the block for the source, and the
+\ second as a shadow.
 : edtshdw curpos &badr @ &bbase @ = if SCRSIZ &badr +!
 	else &bbase @ &badr ! then init2 +cur ;
 
-\\ Wait \"a while\".  TBD: get ForthOS clock services, and use them!
+\ Wait "a while".  TBD: get ForthOS clock services, and use them!
 : delay 4000000 0 do loop ;
 
-\\ this screen code is used to set the user defined tag
+\ this screen code is used to set the user defined tag
 : settag  position
-  .\" Tag set\" delay
+  ." Tag set" delay
   scr @ &tag ! unposition ;
 
 : totag  &tag @  scr ! init ;
 
-: help heading cr .\" Normal commands\" cr cr
-  .\"  ^Q-clr line       ^Y-del line           ^P-get line\"    cr
-  .\"  ^K-del to eol     ^O-put line           ^L-del to eos\"  cr
-  .\"  ^I-tab            ^U-update scr         ^T-del word\"    cr
-  .\"  ^G-del char       ^V-insert mode       ret-insert line\" cr
-  .\"  ^C-next scr       ^R-last scr           ^J-goto tag\"    cr
-  .\"  ^E-up             ^X-down               ^S-left\"        cr
-  .\"  ^D-right          ^A-left word          ^F-right word\"  cr
-  .\"  ^B-begin line     ^N-end line\" cr cr
-  .\" Special commands (used after the esc key):\" cr cr
-  .\" c-clr scr          d-dup blk             e-edit scr\"  cr
-  .\" f-finished         p-print scr           q-quit edit\" cr
-  .\" r-restart          s-edit shadow         t-set tag\"   cr
-  .\" h-help\" cr cr
-  .\" Hit any key to continue\" key drop 1 &status !
+: help heading cr ." Normal commands" cr cr
+  ."  ^Q-clr line       ^Y-del line           ^P-get line"    cr
+  ."  ^K-del to eol     ^O-put line           ^L-del to eos"  cr
+  ."  ^I-tab            ^U-update scr         ^T-del word"    cr
+  ."  ^G-del char       ^V-insert mode       ret-insert line" cr
+  ."  ^C-next scr       ^R-last scr           ^J-goto tag"    cr
+  ."  ^E-up             ^X-down               ^S-left"        cr
+  ."  ^D-right          ^A-left word          ^F-right word"  cr
+  ."  ^B-begin line     ^N-end line" cr cr
+  ." Special commands (used after the esc key):" cr cr
+  ." c-clr scr          d-dup blk             e-edit scr"  cr
+  ." f-finished         p-print scr           q-quit edit" cr
+  ." r-restart          s-edit shadow         t-set tag"   cr
+  ." h-help" cr cr
+  ." Hit any key to continue" key drop 1 &status !
   page updscr ;
 
 
@@ -298,69 +298,69 @@ lps 1 - constant lps-1
 
 
 
-: 1st 0 &cur ! ;                \\ go to 1st line
+: 1st 0 &cur ! ;                \ go to 1st line
 
-: lst lps-1 line#> &cur ! ;        \\ go to last line
+: lst lps-1 line#> &cur ! ;        \ go to last line
 
-: hldln curpos >line# line#>    \\ hold line at cur
-  bufadr pad1 c/l cmove         \\ at pad
+: hldln curpos >line# line#>    \ hold line at cur
+  bufadr pad1 c/l cmove         \ at pad
   1 &status ! ;
 
-: insln lps-1 ?empty if curpos     \\ insert line from pad
-  >line# dup line#> dup         \\ at cur
+: insln lps-1 ?empty if curpos     \ insert line from pad
+  >line# dup line#> dup         \ at cur
   exp bufadr pad1 swap c/l
   cmove distoeos
   else beep then ;
 
-: rett &mode @                  \\ special cr never inserts
-  0 &mode ! ret                 \\ blank line even if
-    &mode ! ;                   \\ insert is on
+: rett &mode @                  \ special cr never inserts
+  0 &mode ! ret                 \ blank line even if
+    &mode ! ;                   \ insert is on
 
-: begline rett uarrow ;         \\ goto beg of line
+: begline rett uarrow ;         \ goto beg of line
 
-: endline rett -1 +cur bl       \\ goto last char of line
+: endline rett -1 +cur bl       \ goto last char of line
   bufpos dup c/l - swap
   scan-<> 1+ +cur ;
 
-: deltoeol curpos #toeol dup    \\ delete to end of line
-\\                                                                    vandys
+: deltoeol curpos #toeol dup    \ delete to end of line
+\                                                                    vandys
   spaces bufpos
   swap blank  upd ;
 
-: status                     \\ display edit status
+: status                     \ display edit status
   page
-  curpos c/l /mod         15   \\ display line and char
-  64 2 at 2 .r            \\ positions
+  curpos c/l /mod         15   \ display line and char
+  64 2 at 2 .r            \ positions
   73 2 at 2 .r
-  &status @ if               \\ if status change then
-  14 2 at scr @ 3 .r      \\ display remainder
+  &status @ if               \ if status change then
+  14 2 at scr @ 3 .r      \ display remainder
   28 2 at &upd  @
-     if inv-on .\" Altered\"    inv-off else .\" Virgin \"    then
+     if inv-on ." Altered"    inv-off else ." Virgin "    then
   45 2 at &mode @
-     if inv-on .\" Insert on \" inv-off else .\" Insert off\" then
+     if inv-on ." Insert on " inv-off else ." Insert off" then
   8 21 2dup at 8 blot at pad1 c/l -trailing type
   0 &status ! then
-  0 3 at .\" Hit a key to continue: \" key drop  page updscr   ;
+  0 3 at ." Hit a key to continue: " key drop  page updscr   ;
 
-: &  [compile] char [compile] literal ; immediate \\ shorthand for char
-: special position .\" Special cmd: \"     \\ process control chars
-  0 1500000 0                            \\ put 0 on tos as flag
-  do key? if drop 1 leave then loop      \\ loop until key or
-                                         \\ tos 0 if time out
-  if key upc case                        \\ if key then show it
-                                         \\ and process
+: &  [compile] char [compile] literal ; immediate \ shorthand for char
+: special position ." Special cmd: "     \ process control chars
+  0 1500000 0                            \ put 0 on tos as flag
+  do key? if drop 1 leave then loop      \ loop until key or
+                                         \ tos 0 if time out
+  if key upc case                        \ if key then show it
+                                         \ and process
 & E of edits   endof  & R of rstedit  endof & C of clrscn  endof
-\\ & P of prnt    endof
+\ & P of prnt    endof
 & H of help endof     & V of status endof
 & D of dupblock endof & Q of quited endof
 & F of exitupd endof  & S of edtshdw endof  & T of settag  endof
  beep endcase
- else help		\\ else show help menu
+ else help		\ else show help menu
  then
- unposition		\\ Refresh prompt line
- 1 &status ! 0 mvcur ;	\\ update screen
+ unposition		\ Refresh prompt line
+ 1 &status ! 0 mvcur ;	\ update screen
 
-\\ Shorthand for compiling a control character into a def
+\ Shorthand for compiling a control character into a def
 : ^ [compile] char $1F and [compile] literal ; immediate
 
 : command case
@@ -398,29 +398,28 @@ beep endcase ;
 
 
 
-: insertoff key dup ?prt        \\ overlay char at cursor
+: insertoff key dup ?prt        \ overlay char at cursor
   if dup emit bufpos c! upd 1 +cur
   else command then ;
 
-: inserton key dup ?prt         \\ insert char at cursor
+: inserton key dup ?prt         \ insert char at cursor
   if curpos inschar curpos
   distoeol 1 +cur
   else command then ;
 
 also forth definitions
 
-: e decimal empty-buffers      \\ invoke editor with e
-  depth if scr ! then          \\ if screen specified then
-  scr @ &tag !                 \\ set tag to 1st screen
-  0 &cur ! 0 &mode ! 0 &upd !  \\ reset variables
-  pad 200 blank                \\ clear pad area
+: e decimal empty-buffers      \ invoke editor with e
+  depth if scr ! then          \ if screen specified then
+  scr @ &tag !                 \ set tag to 1st screen
+  0 &cur ! 0 &mode ! 0 &upd !  \ reset variables
+  pad 200 blank                \ clear pad area
   heading cr cr
-  .\" Ready when you are\" cr cr \\ display message
-  getid init                   \\ initialize editor
-  begin                        \\ main editor loop
+  ." Ready when you are" cr cr \ display message
+  getid init                   \ initialize editor
+  begin                        \ main editor loop
   0 mvcur &mode @
   if inserton else insertoff then
-  again ;                      \\ loop forever
+  again ;                      \ loop forever
 
 only
-"

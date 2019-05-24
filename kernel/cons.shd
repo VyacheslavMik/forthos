@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -533,7 +533,7 @@ State of key modifiers.  Note: no caps lock or alt.
 
    Initialize cursor position to bottom of screen
 
-   Print screen # and \"Ok\" so we see something at bootup
+   Print screen # and "Ok" so we see something at bootup
 
 
 
@@ -573,4 +573,3 @@ State of key modifiers.  Note: no caps lock or alt.
 
 
 
-"

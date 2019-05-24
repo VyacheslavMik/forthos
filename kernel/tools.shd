@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -50,7 +50,7 @@
 
 
 : $null Init to empty string
-: $count Convert to counted buffer, alias for \"count\"
+: $count Convert to counted buffer, alias for "count"
 : $strlen Return string length
 : $eos Return pointer to first char position beyond end of string
 : +c! Like +!, but affect byte counter instead of cell
@@ -198,4 +198,3 @@ Number of char values supported (i.e., a byte is a char)
 
 
 
-"

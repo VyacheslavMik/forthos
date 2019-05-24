@@ -1,8 +1,8 @@
-"                                                                     vandys
+                                                                     vandys
 The sentinal pair at the end of the node actually gets used transiently
  during an insertion.  The way an insertion works is that the new
- key/value pair is always inserted into the node.  If the last, \"sentinel\"
- pair is then found to be used, the node is known to be \"full\", and it
+ key/value pair is always inserted into the node.  If the last, "sentinel"
+ pair is then found to be used, the node is known to be "full", and it
  is split in two, with the new latter half being inserted up into the
  parent.
 
@@ -373,4 +373,3 @@ Key traversal methods
 
 
 
-"

@@ -1,4 +1,4 @@
-"
+
 
 
 Maximum number of pending local entries in a queue
@@ -6,7 +6,7 @@ Screen and definition local queues.  Each is a one-cell count, followed
  by a pair of words for the entry and its definition vocabulary
 (locals) holds words which have become hidden due to being declared local
 
-: (saveLocal) Record the latest definition (in \"last\") onto the
+: (saveLocal) Record the latest definition (in "last") onto the
  indicated queue
 
 : scrLocal Record latest def as screen local
@@ -36,7 +36,7 @@ Screen and definition local queues.  Each is a one-cell count, followed
 : (flushLocal) Flush from definition-local vocabulary
 
 Connect our vectors to the hooks for when a screen load ends and
- when the definition order changes (only or \"definitions\")
+ when the definition order changes (only or "definitions")
 
 
 
@@ -98,4 +98,3 @@ Connect our vectors to the hooks for when a screen load ends and
 
 
 
-"

@@ -1,38 +1,38 @@
-"\\ Support for moving words to other (hidden) vocabularies            vandys
+\ Support for moving words to other (hidden) vocabularies            vandys
 
 [ifdef] DEPRECATED
 
-*** Note this is all superseded by the \"locals\" support ***
+*** Note this is all superseded by the "locals" support ***
 
 
 
 
 
-\\ Once the ForthOS system is entirely built and you're ready to
-\\ focus on your own coding, there are a terrible lot of words sitting
-\\ around in \"forth\" which are of no interest to the developer; internal
-\\ words, user variables, and so forth.  The screens which follow
-\\ provide the ability to pick some vocabulary, and then let you name
-\\ words which will be plucked from their current vocabulary and moved
-\\ over to the new one.
+\ Once the ForthOS system is entirely built and you're ready to
+\ focus on your own coding, there are a terrible lot of words sitting
+\ around in "forth" which are of no interest to the developer; internal
+\ words, user variables, and so forth.  The screens which follow
+\ provide the ability to pick some vocabulary, and then let you name
+\ words which will be plucked from their current vocabulary and moved
+\ over to the new one.
 
-\\ There are also screens beyond that which use this facility do a
-\\ cleanup of \"forth\", putting most of the internal words into a new
-\\ \"sys\" vocabulary, and putting all user variables into \"usr\".
-
-
+\ There are also screens beyond that which use this facility do a
+\ cleanup of "forth", putting most of the internal words into a new
+\ "sys" vocabulary, and putting all user variables into "usr".
 
 
-\\ Support for moving words to other (hidden) vocabularies            vandys
+
+
+\ Support for moving words to other (hidden) vocabularies            vandys
 
 only extensions definitions
 create (destvoc) 0 ,
-: grab ( -- )   (destvoc) @ = abort\" No destination set\"
-   word (findLink) dup 0= abort\" Not found\"   ( linkptr )
+: grab ( -- )   (destvoc) @ = abort" No destination set"
+   word (findLink) dup 0= abort" Not found"   ( linkptr )
    (takeVoc) ( LFA )   (putVoc) ;
 
 
-[then] \\ DEPRECATED
+[then] \ DEPRECATED
 
 
 
@@ -48,4 +48,3 @@ create (destvoc) 0 ,
 
 
 
-"

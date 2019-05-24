@@ -1,18 +1,18 @@
-"\\                                                                    vandys
-\\ ide.f
-\\       Block I/O routines for IDE on the x86
+\                                                                    vandys
+\ ide.f
+\       Block I/O routines for IDE on the x86
 drivers definitions
 
-\\ Parameters
+\ Parameters
 SECSIZ constant SECSIZ
 SECWORDS constant SECWORDS
 BLKSECS constant BLKSECS
 
-\\ IDE unit for current operation
+\ IDE unit for current operation
 variable ideunit
 
-\\ Offset into disk to address active partition
-\\  Set up during bootup via boot-ide
+\ Offset into disk to address active partition
+\  Set up during bootup via boot-ide
 variable ideoff
 
 
@@ -23,23 +23,23 @@ variable ideoff
 
 
 
-\\                                                                    vandys
-\\ I/O base ports
+\                                                                    vandys
+\ I/O base ports
 $1F0 constant IDEBASE   $206 constant IDECTLR
 
-\\ IDE controller ports
+\ IDE controller ports
 0 constant IDE_DATA     1 constant IDE_ERROR    2 constant IDE_SCNT
 3 constant IDE_SNUM     4 constant IDE_CYL0     5 constant IDE_CYL1
 6 constant IDE_SDH      7 constant IDE_STATUS   7 constant IDE_CMD
 
-\\ IDE status bits
+\ IDE status bits
 $01 constant IDES_ERROR $04 constant IDES_ECC   $08 constant IDES_DRQ
 $80 constant IDES_BUSY
 
-\\ IDE mode of operation--LBA/IBM
+\ IDE mode of operation--LBA/IBM
 $E0 constant IDE_MODE
 
-\\ IDE commands
+\ IDE commands
 $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
@@ -48,18 +48,18 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
 
-\\                                                                    vandys
-\\ Return match of IDE status bit
+\                                                                    vandys
+\ Return match of IDE status bit
 : ide_stat_check        ( n -- bool )
         IDEBASE IDE_STATUS + inb and 0= not
 ;
 
-\\ Tell if controller indicates it's busy with a command
+\ Tell if controller indicates it's busy with a command
 : idebusy               ( -- bool )
         IDES_BUSY ide_stat_check
 ;
 
-\\ Tell if controller has a data request
+\ Tell if controller has a data request
 : idedrq                ( -- bool )
         IDES_DRQ ide_stat_check
 ;
@@ -73,9 +73,9 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
 
-\\                                                                    vandys
-\\ Make these CODE words when we get the assembler running
-\\ Block I/O into buffer
+\                                                                    vandys
+\ Make these CODE words when we get the assembler running
+\ Block I/O into buffer
 : repinsw       ( a port count -- )
        2* rot swap over + swap do dup inw i w! 2 +loop drop
 ;
@@ -83,11 +83,11 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
        2* rot swap over + swap do i w@ over outw 2 +loop drop
 ;
 
-\\ code repinsw ( a port count -- )   ecx pop   edx pop   edi pop
-\\   16: rep ins   next c;
-\\ code repoutsw ( a port count -- )   esi eax mov
-\\   ecx pop   edx pop   esi pop   16: rep outs
-\\   eax esi mov   next c;
+\ code repinsw ( a port count -- )   ecx pop   edx pop   edi pop
+\   16: rep ins   next c;
+\ code repoutsw ( a port count -- )   esi eax mov
+\   ecx pop   edx pop   esi pop   16: rep outs
+\   eax esi mov   next c;
 
 
 
@@ -98,7 +98,7 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : waitdrq ( -- )   begin   idedrq 0=   while pause repeat ;
 : ideio ( a blk op -- )
    begin idebusy while   pause   repeat
@@ -123,7 +123,7 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
    swap dup   IDEBASE IDE_CMD +   outb
    IDECMD_WRITE = if   BLKSECS 0 do   waitdrq
          dup   IDEBASE IDE_DATA +   SECWORDS repoutsw
@@ -148,14 +148,14 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
 
-\\                                                                    vandys
-\\ Get block pointer, doing I/O if needed
+\                                                                    vandys
+\ Get block pointer, doing I/O if needed
 : iderdwt       ( a blk rw -- err )
-   \\ Convert block number to sector index
+   \ Convert block number to sector index
    swap BLKSECS * ideoff @ + swap
 
-   \\ Convert r/w argument to IDE read or write command; 0 means write,
-   \\  any other value means read
+   \ Convert r/w argument to IDE read or write command; 0 means write,
+   \  any other value means read
    if IDECMD_READ else IDECMD_WRITE then ideio 0
 ;
 
@@ -173,7 +173,7 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
 
-\\ Disk partition parsing                                             vandys
+\ Disk partition parsing                                             vandys
 
 4 constant NFDISK
 158 constant PT_FORTHOS
@@ -198,7 +198,7 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
 
 
-\\ Disk startup/initialization                                        vandys
+\ Disk startup/initialization                                        vandys
 also initialize definitions
 : boot-ide ( bool -- n | )
  if
@@ -223,4 +223,3 @@ only
 
 
 
-"

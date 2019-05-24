@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -28,7 +28,7 @@ AgView is an aggregate view of a List of some other data structure
 Counter of size of each constituent
 : (agSize) Iterator for accumulating size from a single B-tree
 :method size Size of aggregate--only an approximation, since values
- from inner members may \"cover\" the same value in an outer
+ from inner members may "cover" the same value in an outer
 
 
 
@@ -73,4 +73,3 @@ Local tally of keys seen
 
 
 
-"

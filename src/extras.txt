@@ -1,4 +1,4 @@
-"\\ Memory structures                                                  vandys
+\ Memory structures                                                  vandys
 only extensions definitions
 64 constant (struct_max)
 create (struct_prefix) (struct_max) allot
@@ -20,11 +20,11 @@ variable (struct_idx)
 : int32  (build_struct)   4 (struct_idx) +!   ;
 : intcell   (build_struct)   1 cells (struct_idx) +! ;
 : bytes ( u -- )   (build_struct)   (struct_idx) +! ;
-: endstruct   [char] . (cat_name)   s\" size\" (struct_name) $strccat
+: endstruct   [char] . (cat_name)   s" size" (struct_name) $strccat
    (struct_prolog)   (struct_idx) @ ,   does>   @ ;
 
-\\ Enumerations                                                       vandys
-\\ NOTE: uses same memory structures as a \"struct\" construct
+\ Enumerations                                                       vandys
+\ NOTE: uses same memory structures as a "struct" construct
 variable (val_set)
 : enum   (val_set) off   struct ;
 : (build_enum_name) ( -- a )   [char] _ (cat_name)
@@ -34,7 +34,7 @@ variable (val_set)
 : enumval!   (struct_idx) !   (val_set) on ;
 : enumval   (build_enum)   1 (struct_idx) +! ;
 : endenum   (val_set) @ if   exit   then
-   [char] _ (cat_name)   s\" MAX\" (struct_name) $strccat
+   [char] _ (cat_name)   s" MAX" (struct_name) $strccat
    (struct_prolog)   (struct_idx) @ 1- ,   does>   @ ;
 
 
@@ -48,9 +48,9 @@ variable (val_set)
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
-\\ More string functions
+\ More string functions
 : $strcpy ( dest src -- )   dup c@ 1+   swap -rot move ;
 
 
@@ -73,14 +73,14 @@ variable (val_set)
 
 
 
-\\ Named arguments--parsing                                           vandys
-only extensions also forth \\ Note: loading continues here system build
+\ Named arguments--parsing                                           vandys
+only extensions also forth \ Note: loading continues here system build
 
-\\ : my+1 { arg1 arg2 -- result }   arg1 arg2 + { sum }   sum 1+ ;
-\\ Basically, names whose scope is the def, acting as constant's for
-\\  the passed parameters.  We permit these at any point in the def.
-\\ Result part is parsed & checked
-\\ Note: the compile-time mechanism is not reentrant
+\ : my+1 { arg1 arg2 -- result }   arg1 arg2 + { sum }   sum 1+ ;
+\ Basically, names whose scope is the def, acting as constant's for
+\  the passed parameters.  We permit these at any point in the def.
+\ Result part is parsed & checked
+\ Note: the compile-time mechanism is not reentrant
 
 variable curDef
 
@@ -98,7 +98,7 @@ variable curDef
 
 
 
-\\ Named arguments--dictionary entries                                vandys
+\ Named arguments--dictionary entries                                vandys
 
 create localNFAs   #locals cells allot
 create maxName   31 c, 31 allot   maxName 1+ 31 char * fill
@@ -123,7 +123,7 @@ code {@
 
 
 
-\\ Named arguments--dictionary entries                                vandys
+\ Named arguments--dictionary entries                                vandys
 
 vocabulary (localVoc)   also (localVoc) definitions
 
@@ -148,7 +148,7 @@ current @   -also definitions   constant localVocPtr
 
 
 
-\\ Named arguments--name handling                                     vandys
+\ Named arguments--name handling                                     vandys
 
 variable curArg
 
@@ -173,7 +173,7 @@ variable curArg
 
 
 
-\\ Named arguments--setting value                                     vandys
+\ Named arguments--setting value                                     vandys
 
 code {!
    ecx pop   'local->eax   0 [eax] ebx mov
@@ -198,7 +198,7 @@ code {!
 
 
 
-\\ Named arguments--setup and cleanup of local variable state         vandys
+\ Named arguments--setup and cleanup of local variable state         vandys
 
 code end}
    #locals cells # ebp add
@@ -223,17 +223,17 @@ code init{
 
 
 
-\\ Named arguments--cleanup w. return value checking                  vandys
+\ Named arguments--cleanup w. return value checking                  vandys
 
 $8 constant TERMVAL   $88888888 constant TERMINIT
-:noname ( -- a )   c\" Bad return format\" ; execute constant \"badRet
+:noname ( -- a )   c" Bad return format" ; execute constant "badRet
 code end}--
    #locals cells 8 + [ebp] ecx mov
    esp ecx sub   ecx 2 shr   $F # ecx and
    #locals cells 4 + [ebp] edx mov
 1 $: edx eax mov   $F # eax and   ecx eax cmp   2 $ je
    TERMVAL # eax cmp   3 $ je   edx 4 shr   1 $ jmp
-3 $:   4 # esi sub   \"badRet push#   ' (abort) # eax mov   eax jmp
+3 $:   4 # esi sub   "badRet push#   ' (abort) # eax mov   eax jmp
 2 $:
    #locals cells [ebp] ebx mov   'local->eax   ebx 0 [eax] mov
    #locals cells 16 + [ebp] esi mov
@@ -248,7 +248,7 @@ code end}--
 
 
 
-\\ Named arguments--setup w. return value checking                    vandys
+\ Named arguments--setup w. return value checking                    vandys
 
 code init{--
    lods   eax edx mov
@@ -273,18 +273,18 @@ code init{--
 
 
 
-\\ Named arguments--parsing of return value format                    vandys
+\ Named arguments--parsing of return value format                    vandys
 
 code 2over ( d1 d2 -- d1 d2 d1 )   8 [esp] eax mov   12 [esp] ebx mov
    ebx push   eax push   next c;
 
 variable narg   variable argEntry
 
-: #args ( -- u ? )   0 begin   bl parse dup 0= abort\" Missing }\"
-      s\" |\" 2over ($cstreq?) if   2drop false exit   then
-      s\" }\" ($cstreq?) if   true exit   then
+: #args ( -- u ? )   0 begin   bl parse dup 0= abort" Missing }"
+      s" |" 2over ($cstreq?) if   2drop false exit   then
+      s" }" ($cstreq?) if   true exit   then
    1+ again ; scrLocal
-: proc\"--\" ( -- )   ['] init{--   argEntry @ !
+: proc"--" ( -- )   ['] init{--   argEntry @ !
    TERMINIT begin   #args -rot ( done? mask #arg )
       narg @ - $F and   swap 4 << or ( done? mask' )
    swap until   argEntry @ cell+ ! ;
@@ -298,11 +298,11 @@ variable narg   variable argEntry
 
 
 
-\\ Named arguments--actual compilation words                          vandys
+\ Named arguments--actual compilation words                          vandys
 
-: ({) ( -- )   bl parse dup 0= abort\" no name\" ( a-str u-len )
-   s\" --\" 2over ($cstreq?) if   2drop proc\"--\"   exit then
-   s\" }\" 2over ($cstreq?) if   2drop   exit then
+: ({) ( -- )   bl parse dup 0= abort" no name" ( a-str u-len )
+   s" --" 2over ($cstreq?) if   2drop proc"--"   exit then
+   s" }" 2over ($cstreq?) if   2drop   exit then
    narg inc   recurse
    localName!   compile {!   curArg @ 1+ cells ,   curArg inc ;
 : { ( -- )   (genhook) curDef @ last @ - if
@@ -311,7 +311,7 @@ variable narg   variable argEntry
       narg off   curArg off   then
    ({) ; immediate compile-only
 
-: } ( -- )   1 abort\" Mismatched braces\" ; immediate
+: } ( -- )   1 abort" Mismatched braces" ; immediate
 
 
 
@@ -323,7 +323,7 @@ variable narg   variable argEntry
 
 
 
-\\ Fast reboot                                                        vandys
+\ Fast reboot                                                        vandys
 
 $1000 constant NBPG scrLocal
 
@@ -333,10 +333,10 @@ code movjmp ( 'info entry src dest bytes -- )
    $2BADB002 # eax mov   edx jmp   c; scrLocal
 here swap - aligned constant movjmpSize scrLocal
 
-: fastboot { blk -- }   ttchan @ abort\" Must run on root console\"
+: fastboot { blk -- }   ttchan @ abort" Must run on root console"
 
    blk block { blk0 }
-   blk0 $20 + @ $1BADB002 - abort\" Bad magic\"
+   blk0 $20 + @ $1BADB002 - abort" Bad magic"
    blk0 $20 +   4 cells + @+ { ldaddr }   @+ { ldend }   cell+ @ { entry }
    ldend ldaddr -   NBPG roundup   NBPG / { nblk }   here { img }
    nblk 0 do   blk i + block   here NBPG move
@@ -348,4 +348,3 @@ here swap - aligned constant movjmpSize scrLocal
 
 
 
-"

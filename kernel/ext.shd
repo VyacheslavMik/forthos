@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -292,7 +292,7 @@ fence--safety net for what can be forgotten
  a vocabulary, but not the case where the vocabulary is still in
  the search order (or the current definition vocabulary)
 
-                 Restore \"here\" to start of this word's allocation
+                 Restore "here" to start of this word's allocation
 
 
 
@@ -374,8 +374,8 @@ Compare to 0
 
 
 
-code strpos Location of counted string at \"a\" is found in the buffer
-at \"ptr\" whose length is \"u\" bytes.  An index from 0 to u, or -1.
+code strpos Location of counted string at "a" is found in the buffer
+at "ptr" whose length is "u" bytes.  An index from 0 to u, or -1.
 Set up for search; keep old base pointer to generate found index.
   Also record ESI, as wel will be using this in the string instructions
 Check count, leave if we're off the end of the buffer to search
@@ -399,8 +399,8 @@ Restore ESI and return result.
 
 
 
-code strpos Location of counted string at \"a\" is found in the buffer
-at \"ptr\" whose length is \"u\" bytes.  An index from 0 to u, or -1.
+code strpos Location of counted string at "a" is found in the buffer
+at "ptr" whose length is "u" bytes.  An index from 0 to u, or -1.
 Set up for search; keep old base pointer to generate found index.
   Also record ESI, as wel will be using this in the string instructions
 Check count, leave if we're off the end of the buffer to search
@@ -473,4 +473,3 @@ Double compare           d2 -> ebx/eax       d1 -> edx/ecx
 
 
 
-"

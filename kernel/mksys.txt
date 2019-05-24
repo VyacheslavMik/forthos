@@ -1,20 +1,20 @@
-"\\                                                                    vandys
-\\ Sequence for loading (metacompiling) base system image
-\\
-\\ We use <dict>.<word> for \"load\" to make sure we use the filesystem
-\\  oriented word regardless of search order.
+\                                                                    vandys
+\ Sequence for loading (metacompiling) base system image
+\
+\ We use <dict>.<word> for "load" to make sure we use the filesystem
+\  oriented word regardless of search order.
 
-\\ We probably never want debugging enabled (it'll make the metacompiler
-\\  crawl)
+\ We probably never want debugging enabled (it'll make the metacompiler
+\  crawl)
 extensions.[-debug]
 
-\\ Load base system
+\ Load base system
 fs.load base   fs.load ext   fs.load block   fs.load tools
 fs.load tasking   fs.load cons   fs.load ide   fs.load buckets
 
-\\ Convert to actual image
+\ Convert to actual image
 fixups   base_mem @ here relocate
-base_mem @   here over - 4096 /   1 swap   .s   \\ write_image
+base_mem @   here over - 4096 /   1 swap   .s   \ write_image
 
 
 
@@ -23,4 +23,3 @@ base_mem @   here over - 4096 /   1 swap   .s   \\ write_image
 
 
 
-"

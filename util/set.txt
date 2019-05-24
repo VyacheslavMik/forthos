@@ -1,16 +1,16 @@
-"\\ Hash based lists (ala Smalltalk Set's)                             vandys
+\ Hash based lists (ala Smalltalk Set's)                             vandys
 
-\\ Arbitrary cell values can be inserted in a hashed list, and their
-\\  presence tested for efficiently using a hashing of the value.
-\\  The list will grow as needed to accomodate its contents
-\\  It is benign to add something more than once; it will exist
-\\  in the list only once.
-\\ Instance variables hold a list of values, the overall size of the list,
-\\  and a count of the number of values in the list (0 is not a legal value).
-\\ A member in the Set
-\\  is located at its hash modulo current count, with collisions handled
-\\  by simply advancing by cells until a null entry is found.  It is
-\\  guaranteed that there will always be a null cell for this search.
+\ Arbitrary cell values can be inserted in a hashed list, and their
+\  presence tested for efficiently using a hashing of the value.
+\  The list will grow as needed to accomodate its contents
+\  It is benign to add something more than once; it will exist
+\  in the list only once.
+\ Instance variables hold a list of values, the overall size of the list,
+\  and a count of the number of values in the list (0 is not a legal value).
+\ A member in the Set
+\  is located at its hash modulo current count, with collisions handled
+\  by simply advancing by cells until a null entry is found.  It is
+\  guaranteed that there will always be a null cell for this search.
 
 only extensions definitions
 
@@ -23,7 +23,7 @@ only extensions definitions
 
 
 
-\\ Set--class, instance creation, and initialization                  vandys
+\ Set--class, instance creation, and initialization                  vandys
 
 Collection -> subclass: Set
    ivars:   intcell list   intcell count   intcell elems   endivars
@@ -48,7 +48,7 @@ Set -> :method free ( self -- )   dup Set>list @ bkfree
 
 
 
-\\ Accessing members of Set                                           vandys
+\ Accessing members of Set                                           vandys
 
 : set>hash ( set key -- u )   (>hash)   swap Set>count @ mod ; Local
 Set -> :method in? { key self -- ? }   self key set>hash   dup { start }
@@ -57,13 +57,13 @@ Set -> :method in? { key self -- ? }   self key set>hash   dup { start }
       0= if   unloop drop false exit   then   loop drop
    self Set>list @   start 0 do ( 'cell )
       @+   dup key = if   unloop 2drop true exit   then
-      0= if   unloop drop false exit   then   loop   1 abort\" List full\"
+      0= if   unloop drop false exit   then   loop   1 abort" List full"
    method;
 
 Set -> :method @ ( idx self -- val )   dup Set>list @   swap Set>count @
    0 do   ( idx 'cell )
       @+ if   swap ?dup 0= if   cell- @ unloop exit   then   1- swap then
-   loop   1 abort\" Out of bounds\" method;
+   loop   1 abort" Out of bounds" method;
 
 
 
@@ -73,7 +73,7 @@ Set -> :method @ ( idx self -- val )   dup Set>list @   swap Set>count @
 
 
 
-\\ Hash based lists--storage, rehash                                  vandys
+\ Hash based lists--storage, rehash                                  vandys
 
 : setAdd ( new elem -- )   swap -> add ; scrLocal
 Set -> :method swap { other self -- }
@@ -98,11 +98,11 @@ Set -> :method grow { self -- }
 
 
 
-\\ Hash based lists--storage, rehash                                  vandys
+\ Hash based lists--storage, rehash                                  vandys
 
 : upsize { set -- }   set Set>elems inc
    set Set>elems @   set Set>count @ = if   set -> grow   then ; scrLocal
-Set -> :method add { key self -- }   key dup 0= abort\" Zero key\"
+Set -> :method add { key self -- }   key dup 0= abort" Zero key"
    self swap set>hash   dup { start }
    cells self Set>list @ +   self Set>count @   start do ( 'cell )
       @+   dup key = if   unloop 2drop exit   then
@@ -110,7 +110,7 @@ Set -> :method add { key self -- }   key dup 0= abort\" Zero key\"
    self Set>list @   start 0 do
       @+   dup key = if   unloop 2drop exit   then
       0= if   cell- key swap !   unloop self upsize exit   then   loop
-   1 abort\" List full\" method;
+   1 abort" List full" method;
 
 
 
@@ -123,7 +123,7 @@ Set -> :method add { key self -- }   key dup 0= abort\" Zero key\"
 
 
 
-\\ Hash based lists--removal                                          vandys
+\ Hash based lists--removal                                          vandys
 
 : fixups { set start -- }
    start cells set Set>list @ +   set Set>count @ start do
@@ -135,10 +135,10 @@ Set -> :method add { key self -- }   key dup 0= abort\" Zero key\"
 Set -> :method remove { key self -- }   self key set>hash   dup { start }
    cells self Set>list @ +   self Set>count @ start do
       @+ dup key = if   drop cell- off  self i unloop fixups   exit then
-      0= abort\" Not in Set\" loop drop
+      0= abort" Not in Set" loop drop
    self Set>list @   start 0 do
       @+ dup key = if   drop cell- off  self i unloop fixups   exit then
-      0= abort\" Not in Set\" loop drop method;
+      0= abort" Not in Set" loop drop method;
 
 
 
@@ -148,7 +148,7 @@ Set -> :method remove { key self -- }   self key set>hash   dup { start }
 
 
 
-\\ Hash based lists--enumeration, display                             vandys
+\ Hash based lists--enumeration, display                             vandys
 
 Set -> :method do { arg 'fn self -- }   self Set>elems @   self Set>list @
    ( count 'cell ) begin over while
@@ -173,14 +173,14 @@ Set -> :method size ( set -- u )   Set>elems @ method;
 
 
 
-\\ Hash based lists--testing                                          vandys
-false [if] \\ testing
+\ Hash based lists--testing                                          vandys
+false [if] \ testing
 Set -> new constant s
 500 constant #ITERS
 create vals   #ITERS cells allot
 
 : vrfy   #ITERS 0 do   vals i cells + @ ?dup if
-      s -> in? not abort\" Missing\"   then   loop ;
+      s -> in? not abort" Missing"   then   loop ;
 : init   randstate off   vals #ITERS cells erase ;
 : duped? ( n -- ? )   #ITERS 0 do   vals i cells + @ over = if
       unloop drop true exit   then loop   drop false ;
@@ -191,17 +191,17 @@ create vals   #ITERS cells allot
 : test2   #ITERS 0 do   vals i cells + @   s -> !   loop   vrfy ;
 : test3   #ITERS 5 / 0 do   random #ITERS mod cells vals +
    dup @ s -> remove   off   loop   vrfy ;
-: (test4) ( magic val -- )   s -> in? not abort\" bad iter\"
-   1234 - abort\" bad magic\" ;
+: (test4) ( magic val -- )   s -> in? not abort" bad iter"
+   1234 - abort" bad magic" ;
 : test4   1234 ['] (test4) s -> do ;
-[then] \\ testing
+[then] \ testing
 
 
 
-\\ Hash based lists--duplication                                      vandys
+\ Hash based lists--duplication                                      vandys
 
 Set -> :method copy { self -- new }
-   self Set>count @ Set -> newsize { new } \\ TBD: skip the bkzalloc of list
+   self Set>count @ Set -> newsize { new } \ TBD: skip the bkzalloc of list
    self Set>list @   new Set>list @   self Set>count @ cells move
    self Set>elems @   new Set>elems !   new method;
 
@@ -223,4 +223,3 @@ Set -> :method ephem { self -- }   self Set>list @ ephem drop
 
 
 
-"

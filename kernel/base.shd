@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -899,7 +899,7 @@ Room for return stack, then TIB state
 
 
 
-Place to back-patch \"cold\"'s CFA
+Place to back-patch "cold"'s CFA
 
 
 
@@ -2259,12 +2259,12 @@ Load/store of double and triple words
    Restore return stack
    Restore handler frame
    Save error # on return stack, then restore data stack
-   Drop old \"ca\" from \"catch\", get error # back, and return
+   Drop old "ca" from "catch", get error # back, and return
 
 : @execute Fetch vector and execute if non-zero
 
 : (abort) Do the actual abort
-: (abort\") Run time routine of abort\" . Abort with a message.
+: (abort") Run time routine of abort" . Abort with a message.
 
 Hook for metacompiler use
 
@@ -2475,7 +2475,7 @@ code wfill Fill u-count words (cells) of value u-val beginning at a
 
 
 : -digit Convert digit to value, abort on bad digit.  (Abort path
- has to restore base, which may have been overriden in \"number\")
+ has to restore base, which may have been overriden in "number")
 
 : 10*+ Accumulate another numeric position
 
@@ -2503,7 +2503,7 @@ code wfill Fill u-count words (cells) of value u-val beginning at a
    Save string pointer (for error display), also save base
    Flag negative number, we'll build as positive and convert at end
    Switch to hex input on $<hex>
-   $c puts in \"c\"'s ASCII value
+   $c puts in "c"'s ASCII value
    Otherwise loop across digits, assembling a value
 
 
@@ -2779,9 +2779,9 @@ Notes: ecx holds the current vocab entry being checked.  We leave the
  original pointer, and pointer to dot or 0.
 
 : (str>len) Calculate length of base portion of string
-: (str>base) Make \"a\" point to just base portion of string
+: (str>base) Make "a" point to just base portion of string
  (the part up to, but not including, the dot)
-: (ext>str) Restore \"a\" to the whole string
+: (ext>str) Restore "a" to the whole string
 : (base>str) Switch from base back to whole string
 : (str>ext) Make a' point to just extension portion of string
 : (unbase) Move from base back to str, avoiding vocab addr on TOS
@@ -2898,7 +2898,7 @@ TODO: Handle override mode.
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 History counters and buffer are all in 'user tib'.  The variables
 start after tib, and the array of history commands follows.
 The history command buffer should have a power of 2 entries.
@@ -3179,7 +3179,7 @@ Address of a null string with zero count
 : ' Search context vocabularies for next word in input stream
 : , Compile an integer into the code dictionary
 : [compile] Compile the next immediate word into code dictionary
-: (compile) Run-time for \"compile\"
+: (compile) Run-time for "compile"
 : (genhook) Next word is about to be compiled, provide hook
 
 : compile Compile the next address in colon list to code dictionary
@@ -3401,7 +3401,7 @@ Flag whether to watch tokens coming into the compiler
 
 
 : overt Link a new word into the current vocabulary
- If \"last\" is 0, the current compilation is a :noname, so no action needed
+ If "last" is 0, the current compilation is a :noname, so no action needed
 : (;) Flag end of high-level def
 
 : ?csp Abort if stack pointer differs from that saved in CSP.
@@ -3773,4 +3773,3 @@ Size in bytes of memory starting at 1 meg
 
 
 
-"

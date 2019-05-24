@@ -1,6 +1,6 @@
-"
 
-Put this all in \"drivers\"
+
+Put this all in "drivers"
 
 Quick and dirty rdtsc access
 
@@ -23,4 +23,3 @@ Calculated number of CPU ticks per second, and millisecond
 
 
 
-"

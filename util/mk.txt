@@ -1,17 +1,17 @@
-"\\ Compilation of various utility extensions to base system source    vandys
+\ Compilation of various utility extensions to base system source    vandys
 
-\\ fs.load term RS-232 stuff, including a CLI for the COM[12] ports
+\ fs.load term RS-232 stuff, including a CLI for the COM[12] ports
 
-\\ Base-level OO extensions
+\ Base-level OO extensions
 fs.load list   fs.load oox
 
-fs.load chunks \\ Bucket allocator extensions
+fs.load chunks \ Bucket allocator extensions
 
-\\ The rest of the OO extensions
+\ The rest of the OO extensions
 fs.load hash   fs.load stack   fs.load fifo   fs.load oox
 fs.load set   fs.load btree   fs.load btlist   fs.load btbt   fs.load agview
 fs.load agset   fs.load agbtset   fs.load btbtset
-\\ fs.load agbt   fs.load assocs UNUSED
+\ fs.load agbt   fs.load assocs UNUSED
 
 
 
@@ -23,4 +23,3 @@ fs.load agset   fs.load agbtset   fs.load btbtset
 
 
 
-"

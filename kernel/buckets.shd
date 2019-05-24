@@ -1,4 +1,4 @@
-"
+
 Maximum number of buckets
 Smallest bucket size
  Maximum allocation size
@@ -98,4 +98,3 @@ Notes on implementation: free memory is chained off the bucket
 
 
 
-"

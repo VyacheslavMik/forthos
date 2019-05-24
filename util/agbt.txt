@@ -1,4 +1,4 @@
-"\\ Aggregate Btree                                                    vandys
+\ Aggregate Btree                                                    vandys
 only extensions definitions
 
 AgView -> subclass: AgBtree
@@ -23,7 +23,7 @@ AgView -> subclass: AgBtree
 
 
 
-\\ AgBtree fetch                                                      vandys
+\ AgBtree fetch                                                      vandys
 
 AgBtree -> :method @ ( key self -- val T | F )   ag>list { key list }
    list -> size   0   do   i list -> @ { bt }
@@ -48,7 +48,7 @@ AgBtree -> :method @ ( key self -- val T | F )   ag>list { key list }
 
 
 
-\\ AgBtree iteration                                                  vandys
+\ AgBtree iteration                                                  vandys
 
 AgBtree -> :method do { arg 'fn self -- }
    0 begin   self -> nextKey   while { key }
@@ -73,8 +73,8 @@ AgBtree -> :method do { arg 'fn self -- }
 
 
 
-\\ Aggregate B-trees, testing                                         vandys
-false [if] \\ Testing
+\ Aggregate B-trees, testing                                         vandys
+false [if] \ Testing
 
 Btree -> new constant bt1   Btree -> new constant bt2
 AgBtree -> new constant ab
@@ -83,7 +83,7 @@ AgBtree -> new constant ab
 
 bt1 ab -> add   bt2 ab -> add
 
-[then] \\ Testing
+[then] \ Testing
 
 
 
@@ -98,4 +98,3 @@ bt1 ab -> add   bt2 ab -> add
 
 
 
-"

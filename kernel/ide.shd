@@ -1,4 +1,3 @@
-"
 
 
 
@@ -99,7 +98,8 @@
 
 
 
-: waitdrq Wait for IDE DRQ to indicate \"ready\", pause'ing in between
+
+: waitdrq Wait for IDE DRQ to indicate "ready", pause'ing in between
 : ideio Actual operation of IDE controller
    Wait for drive ready--this can happen unexepectedly
     due to power management spinning down the drive.
@@ -185,7 +185,7 @@ Words to access the needed fields in a partition; array of partitions
 
 : init-ideoff Read fdisk label, find our partition and set ideoff to
  make this the start of our blocks.  If can't find partition, clear
- ideoff to make \"block\" see the whole raw disk.
+ ideoff to make "block" see the whole raw disk.
 
 
 
@@ -223,4 +223,3 @@ Words to access the needed fields in a partition; array of partitions
 
 
 
-"

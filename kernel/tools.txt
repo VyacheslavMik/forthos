@@ -1,46 +1,44 @@
-"\\                                                                    vandys
-\\ tools.f
-\\       Less often used tools, under the \"extensions\" vocabulary
+\                                                                    vandys
+\ tools.f
+\       Less often used tools, under the "extensions" vocabulary
 only extensions definitions
 
-\\ ******************************************************************
-\\ The following block-oriented operations are deprecated now that we
-\\  have the Forth block filesystem instead.
-\\ ******************************************************************
+\ ******************************************************************
+\ The following block-oriented operations are deprecated now that we
+\  have the Forth block filesystem instead.
+\ ******************************************************************
 
-\\ This is defined as
-\\  a block with an initial '\\', and with all other lines containing
-\\  only spaces.
-\\ : (empty) ( a -- bool )
-\\  dup c@ [char] \\ <> if drop false exit then
-\\  BLKCOLS +
-\\  SCRSIZ BLKCOLS - 0 do
-\\   dup c@ ( space ) 32 <> if
-\\    unloop drop false exit then
-\\   1+ loop
-\\  drop true
-\\ ;
-
-
-
-\\                                                                    vandys
-\\ Find first free block
-\\  Scans forward until an empty one is found.  \"block\" is expected
-\\  to throw an error if no free blocks are available.
-\\ : (1stfree) ( u -- u' )
-\\  begin   dup block (empty) not   while 1+ repeat ;
-
-\\ Insert a block
-\\  Scans forward to find first unused block, then copies screens
-\\  to shift them forward.
-\\ : insblock ( u -- )
-\\    \\ Copy from highest screen down to lowest
-\\    dup 1+ (1stfree) begin   2dup <>   while
-\\       dup .   dup dup 1- swap copy
-\\    1- repeat drop
-\\    block BLKSIZ blank update   cr sync ;
+\ This is defined as
+\  a block with an initial '\', and with all other lines containing
+\  only spaces.
+\ : (empty) ( a -- bool )
+\  dup c@ [char] \ <> if drop false exit then
+\  BLKCOLS +
+\  SCRSIZ BLKCOLS - 0 do
+\   dup c@ ( space ) 32 <> if
+\    unloop drop false exit then
+\   1+ loop
+\  drop true
+\ ;
 
 
+
+\                                                                    vandys
+\ Find first free block
+\  Scans forward until an empty one is found.  "block" is expected
+\  to throw an error if no free blocks are available.
+\ : (1stfree) ( u -- u' )
+\  begin   dup block (empty) not   while 1+ repeat ;
+
+\ Insert a block
+\  Scans forward to find first unused block, then copies screens
+\  to shift them forward.
+\ : insblock ( u -- )
+\    \ Copy from highest screen down to lowest
+\    dup 1+ (1stfree) begin   2dup <>   while
+\       dup .   dup dup 1- swap copy
+\    1- repeat drop
+\    block BLKSIZ blank update   cr sync ;
 
 
 
@@ -48,7 +46,9 @@ only extensions definitions
 
 
 
-\\ String functions, supports max 256 char length                     vandys
+
+
+\ String functions, supports max 256 char length                     vandys
 : $null ( a -- )   0 swap c! ;
 : $count ( a -- a+1 n )   count ;
 : $strlen ( a -- n )   c@ ;
@@ -73,7 +73,7 @@ only extensions definitions
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : allEnts ( 'fn -- )   >r current   begin cell+ @ ?dup while
   dup begin @ ?dup while   cell- cell- dup r@ execute cell+   repeat
  repeat   r> drop ;
@@ -98,19 +98,19 @@ only extensions definitions
 
 
 
-\\                                                                    vandys
-\\ Show stack backtrace
-\\  There's no formal stack framing, so we just interpret the values we
-\\ find on the return stack as best we can.
-\\ Note: not reentrant
+\                                                                    vandys
+\ Show stack backtrace
+\  There's no formal stack framing, so we just interpret the values we
+\ find on the return stack as best we can.
+\ Note: not reentrant
 
-\\ The best entry, and the closest we got to its exact address
+\ The best entry, and the closest we got to its exact address
 variable (bestEnt)
 variable (bestDelta)
-\\ The value we're searching for
+\ The value we're searching for
 variable (val)
 
-\\ If the indicated entry is closer to the sought value, record it
+\ If the indicated entry is closer to the sought value, record it
 : (checkEnt) ( ent -- )
  dup @ (val) @ 2dup u<= if
   swap - dup (bestDelta) @ u< if
@@ -123,23 +123,23 @@ variable (val)
 
 
 
-\\                                                                    vandys
-\\ Return most closely matching entry
+\                                                                    vandys
+\ Return most closely matching entry
 : (bestent) ( a -- 0 | u a )
  (val) ! 0 (bestEnt) ! $10000 (bestDelta) !
  ['] (checkEnt) allEnts
  (bestEnt) @ dup if (bestDelta) @ swap then ;
 
-\\ Print an entry in name[+offset] format
+\ Print an entry in name[+offset] format
 : (prval2) ( u a -- )
-  cell+ cell+ .id ?dup if .\" +\" 1 u.r then ;
+  cell+ cell+ .id ?dup if ." +" 1 u.r then ;
 
-\\ Dump a value as a raw integer, also  name+<offset> if possible
+\ Dump a value as a raw integer, also  name+<offset> if possible
 : (showval) ( u -- )
  dup 1 u.r
- (bestent) ?dup if .\" : \" (prval2) then ;
+ (bestent) ?dup if ." : " (prval2) then ;
 
-\\ Print a value, in hex if no conversion was possible
+\ Print a value, in hex if no conversion was possible
 : (prval) ( u -- )
  dup (bestent) ?dup if (prval2) drop
  else 1 u.r then ;
@@ -148,15 +148,15 @@ variable (val)
 
 
 
-\\                                                                    vandys
-\\ Walk back cells of calling stack, displaying each
-\\  Note: the debugger uses its own routine, which knows about local
-\\  variable frames
+\                                                                    vandys
+\ Walk back cells of calling stack, displaying each
+\  Note: the debugger uses its own routine, which knows about local
+\  variable frames
 : where ( -- )   cr   rp@ begin   dup rp0 @ <   while
       dup @ (showval)   cr
    cell+ repeat   drop ;
 
-\\       Random number generator
+\       Random number generator
 create randstate 0 ,
 
 : random ( -- u )
@@ -173,23 +173,23 @@ create randstate 0 ,
 
 
 
-\\                                                                    vandys
-\\ Intern a counted string to a unique counted string pointer which is
-\\ always the same for that particular string.  Implemented by a tree
-\\ indexed by successive bytes, with the 257th pointer being a pointer
-\\ to the unique version of the counted string.
-\\ create (syms)   0 ,
-\\ 256 constant (#chars)
+\                                                                    vandys
+\ Intern a counted string to a unique counted string pointer which is
+\ always the same for that particular string.  Implemented by a tree
+\ indexed by successive bytes, with the 257th pointer being a pointer
+\ to the unique version of the counted string.
+\ create (syms)   0 ,
+\ 256 constant (#chars)
 : zallot ( u -- )   here over erase   allot ;
 : $strdup ( ptr -- ptr' )   here swap   2dup c@ 1+ dup allot
    move   align ;
 : $strdup+ ( ptr u -- ptr' )   here -rot   over c@ 1+ + allot
    ( ptr' ptr ) 2dup c@ 1+ move ;
-\\ : (allocSym) ( ptr a -- )   swap $strdup   tuck swap !   ;
-\\ : >symbol ( a -- ptr )   (syms) over   count over + swap do
-\\       dup @ 0= if   here over !   257 cells zallot   then
-\\       @   i c@ cells +   loop
-\\       dup @ 0= if   (allocSym)   else   nip @   then ;
+\ : (allocSym) ( ptr a -- )   swap $strdup   tuck swap !   ;
+\ : >symbol ( a -- ptr )   (syms) over   count over + swap do
+\       dup @ 0= if   here over !   257 cells zallot   then
+\       @   i c@ cells +   loop
+\       dup @ 0= if   (allocSym)   else   nip @   then ;
 
 only
 
@@ -198,4 +198,3 @@ only
 
 
 
-"

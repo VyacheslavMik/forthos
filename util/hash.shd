@@ -1,4 +1,4 @@
-"                                                                     vandys
+                                                                     vandys
 
 
 
@@ -57,7 +57,7 @@ class Hash--we hold count of # of buckets, and pointer to buckets
 : (>newhash) Given old hash size, double it and then move upward to
  next nearest prime number.
 
-: (put) As an iterator function for List's \"do\", store a member to the hash
+: (put) As an iterator function for List's "do", store a member to the hash
 
 :method grow Increase size of hash bucket array, and re-insert all
  current contents into newly configured buckets.
@@ -123,4 +123,3 @@ class Hash--we hold count of # of buckets, and pointer to buckets
 
 
 
-"

@@ -1,4 +1,4 @@
-"\\ Object lists--adding and searching                                 vandys
+\ Object lists--adding and searching                                 vandys
 
 only extensions definitions
 
@@ -23,10 +23,10 @@ List -> :method indexOf { w self -- n T | F }   self List>elems @
 
 
 
-\\ Object lists--adding, testing, removing, iteration                 vandys
+\ Object lists--adding, testing, removing, iteration                 vandys
 
 List -> :method remove { w self -- }
-   w self -> indexOf   0= abort\" Not in list\"
+   w self -> indexOf   0= abort" Not in list"
    cells { idx } self List>nelem dec   self List>nelem @ cells   idx -
    { #move } self List>elems @ idx + { dest }
    dest cell+ ( src )   dest #move move   method;
@@ -48,9 +48,9 @@ List -> :method reverseDo { arg fn self -- }
 
 
 
-\\ Object lists--basic cell access                                    vandys
+\ Object lists--basic cell access                                    vandys
 
-: (range) ( idx list -- )   List>nelem @   >= abort\" Bad index\" ; scrLocal
+: (range) ( idx list -- )   List>nelem @   >= abort" Bad index" ; scrLocal
 List -> :method @ { idx self -- val }   idx   dup self (range)
    cells   self List>elems @ +   @   method;
 List -> :method ! { val idx self -- }   val   idx   dup self (range)
@@ -73,7 +73,7 @@ List -> :method ! { val idx self -- }   val   idx   dup self (range)
 
 
 
-\\ Object lists--cleanup, display                                     vandys
+\ Object lists--cleanup, display                                     vandys
 
 List -> :method free ( self -- )   dup List>elems @   bkfree
    super-> free   method;
@@ -81,7 +81,7 @@ List -> :method free ( self -- )   dup List>elems @   bkfree
 List -> :method empty! ( self -- )   List>nelem off method;
 
 List -> :method size! ( nelem self -- )
-   2dup   List>nelem @   > abort\" Growing List\"
+   2dup   List>nelem @   > abort" Growing List"
    over cells   over List>elems @ swap bkrealloc ( nelem self elems' )
    over List>elems !   List>nelem ! method;
 
@@ -98,7 +98,7 @@ List -> :method size! ( nelem self -- )
 
 
 
-\\ Object lists--creation utilities                                   vandys
+\ Object lists--creation utilities                                   vandys
 
 : args>list ( args... narg -- list )   List -> new
    swap 0 do   tuck -> add   loop ;
@@ -123,4 +123,3 @@ List -> :method size! ( nelem self -- )
 
 
 
-"

@@ -1,4 +1,4 @@
-"                                                                     vandys
+                                                                     vandys
 
 
 Class Stack--a LIFO data structure
@@ -9,8 +9,8 @@ Class Stack--a LIFO data structure
 :method Stack:pop
 
 :method Stack:do Because of this, we have to create the illusion that the
- tail is \"first\" when iterating for display or otherwise
-:method Stack:reverseDo If \"do\" is reversed, then so must \"reverseDo\" be...
+ tail is "first" when iterating for display or otherwise
+:method Stack:reverseDo If "do" is reversed, then so must "reverseDo" be...
 
 
 
@@ -23,4 +23,3 @@ Class Stack--a LIFO data structure
 
 
 
-"

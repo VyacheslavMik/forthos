@@ -1,4 +1,4 @@
-"\\ Instructions on metacompiling                                      vandys
+\ Instructions on metacompiling                                      vandys
 Instructions to metacompile the system:
 
 1. fs.cd/   fs.cd kernel   fs.load mksys
@@ -23,4 +23,3 @@ Instructions to metacompile the system:
 
 
 
-"

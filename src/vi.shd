@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -31,14 +31,14 @@
 : upc Convert lower case to upper case
 : at at-xy from the Forth standard, but (of course) args reversed
 
-edvar's are variables whose storage lies at \"here\" and beyond,
+edvar's are variables whose storage lies at "here" and beyond,
 with indices allocated as an argument.  This permits multiple
 instances of the editor, one per user task.
 
 
 
 Number of words stored as per-process storage
-This is the \"user name\" of the person editing.  It is flagged as
+This is the "user name" of the person editing.  It is flagged as
  empty, and gets filled in on initial editor invocation.
 Vectors to our input modes; bound to routines as they are defined
 chars per screen      lines per screen
@@ -123,7 +123,7 @@ Size of each pad area
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : position Move to special input partof screen, and blank input line
 : empty? Tell if the indicated line # is empty
 
@@ -556,7 +556,7 @@ Z_cmd table for Z-<cmd> prefixes
 
 : openHere Insert line before this one, go into insertion mode
 
-\\ : changeKey Handle all cX sequences
+\ : changeKey Handle all cX sequences
 : delKey Handle all dX sequences
 : endWord Move to end of current word
 : backWord Move back to previous word
@@ -599,7 +599,7 @@ Z_cmd table for Z-<cmd> prefixes
 
 
 
-top_cmd: Top-level dispatch of \"vi\" type command chars.
+top_cmd: Top-level dispatch of "vi" type command chars.
 
 
 
@@ -626,7 +626,7 @@ top_cmd: Top-level dispatch of \"vi\" type command chars.
                                                                      vandys
 : keycmd Read key and dispatch at top level of editor commands
 
-Arrange for \"v\" to enter editor from forth vocabulary
+Arrange for "v" to enter editor from forth vocabulary
 
 : v Invoke editor, optionally with scr # on stack
   Initialize state
@@ -648,4 +648,3 @@ Arrange for \"v\" to enter editor from forth vocabulary
 
 
 
-"

@@ -1,7 +1,7 @@
-"\\ AgView--aggregate view of some underlying set of data structures   vandys
-\\ AgView is a generic class for holding a list of data structures, and
-\\  permitting the aggregate to be a polymorphic representation of the
-\\  member elements. XYZZY
+\ AgView--aggregate view of some underlying set of data structures   vandys
+\ AgView is a generic class for holding a list of data structures, and
+\  permitting the aggregate to be a polymorphic representation of the
+\  member elements. XYZZY
 only extensions definitions
 
 Collection -> subclass: AgView ivars: intcell list endivars
@@ -23,7 +23,7 @@ AgView -> :method .elems ( self -- )   0   ['] (.ag)
 
 
 
-\\ AgView--aggregate view of some underlying set of data structures   vandys
+\ AgView--aggregate view of some underlying set of data structures   vandys
 
 variable (agCount) scrLocal
 : (agSize) ( 0 bt -- )   nip   -> size   (agCount) +! ; scrLocal
@@ -48,7 +48,7 @@ AgView -> :method in? ( key self -- ? )   ag>list { key list }
 
 
 
-\\ AgView key manipulation                                            vandys
+\ AgView key manipulation                                            vandys
 
 variable (agKey) scrLocal
 
@@ -73,4 +73,3 @@ AgView -> :method topKey ( ag -- key )   ag>list
 
 
 
-"

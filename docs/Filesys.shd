@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -36,7 +36,7 @@
 
 
 Set CWD to a particular level of the block hierarchy
-Open a pair of files, making their basenames visible in the \"fs\" vocab
+Open a pair of files, making their basenames visible in the "fs" vocab
 The name's action is to push its starting block # on the stack
 The name with a hash suffix pushes the low and high blocks of its range
 The block is also the index for closing the file.
@@ -48,4 +48,3 @@ The block is also the index for closing the file.
 
 
 
-"

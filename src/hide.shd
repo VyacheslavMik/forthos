@@ -1,4 +1,3 @@
-"
 
 
 
@@ -25,7 +24,8 @@
 
 
 
-Put this in \"extensions\"
+
+Put this in "extensions"
 This variable records which vocabulary will receive stuff
 
 
@@ -48,4 +48,3 @@ This variable records which vocabulary will receive stuff
 
 
 
-"

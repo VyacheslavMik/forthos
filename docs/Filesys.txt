@@ -1,17 +1,17 @@
-"\\                                                                    vandys
-7010 7020 thru \\ Load filesystem source
+\                                                                    vandys
+7010 7020 thru \ Load filesystem source
 Filesystem to be built on top of blocks
 
 Still primarily work in terms of block numbers
-Provide \"safety net\" for block changes for source code blocks
+Provide "safety net" for block changes for source code blocks
 Hierarchy of uses of blocks
 Pre-allocation, with block metadata to indicate:
  Block in use/valid
  Block is available, currently empty
  Block is untouchable; sentinel for end of file
 
-Pre-allocation for all \"files\"
-Pre-allocation for \"projects\"
+Pre-allocation for all "files"
+Pre-allocation for "projects"
  A project is one or more directory blocks
   Directory is a block range followed by a description
   Human editable, but also machine readable
@@ -23,12 +23,12 @@ Pre-allocation for \"projects\"
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 Block access numbering
 
 First, make it easy to access other vocabularies by adding the voc.id
 extension so if a string isn't found using the usual search a dot will
-make a search in \"voc\" for \"id\".
+make a search in "voc" for "id".
 
 Use a vector which can remap the indicated block #.  By default, it's
 1:1 with physical disk, but once you active the FS it does a mapping.
@@ -42,10 +42,9 @@ fs.vi# thru
 fs.notes close
 
 Don't let multiple files of same name open at same time.  Share vocab
-across all sessions.  Allocate space when sucking in \"fs\" definitions,
-so nothing's forgotten unless \"fs\" itself is removed.  Need to think
-about what techniques needed to thread \"fs\" specially into dynamic
+across all sessions.  Allocate space when sucking in "fs" definitions,
+so nothing's forgotten unless "fs" itself is removed.  Need to think
+about what techniques needed to thread "fs" specially into dynamic
 list of files.
 
 
-"

@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -61,7 +61,7 @@ Description of a given class
    Allocation size (includes size from superclass)
    Pointer to counted string for name of class
    Pointer to #sels array of vectors for all system selectors
-   Pointer to first of subclasses (enumerated thereon via \"sibs\")
+   Pointer to first of subclasses (enumerated thereon via "sibs")
 
 Calculate offsets needed by assembly code
 
@@ -78,7 +78,7 @@ Calculate offsets needed by assembly code
 
 : $strcdup Take pointer & count, carve counted string out of heap,
  make it hold a copy of the indicated contents
-: defClass: The \"banging two rocks together\" way we build the bootstrap
+: defClass: The "banging two rocks together" way we build the bootstrap
  classes
 
 The intial set of classes; built manually to break circularity of definitions
@@ -128,7 +128,7 @@ MetaClass and MetaObject are on a sibling chain under Class
 Most recently defined class
 
 : ivars: Define some instance variables for the class.  We leverage
- the \"struct\" support in defining these fields.
+ the "struct" support in defining these fields.
 
 
 : endivars All done with defining instance vars, record new size
@@ -156,7 +156,7 @@ Array of selector names
 : selalloc Allocate a new selector
 
 This internal API will be hidden after system build, thus we
- create an alias accessing it when building \"oo\" as debug on built system
+ create an alias accessing it when building "oo" as debug on built system
 : >sel Given string name of selector, return unique selector index
 
 
@@ -177,7 +177,7 @@ This internal API will be hidden after system build, thus we
 
 Current class receiving a method, and the methods selector index
 Definition vocab before starting a method definition
-The \"oo\" vocabulary holds entries for all OO methods defined
+The "oo" vocabulary holds entries for all OO methods defined
 Constructed name for an OO method; <class>:<method>
 : class? Enforce class magic number
 
@@ -186,7 +186,7 @@ Constructed name for an OO method; <class>:<method>
 
 
 : (:method) Compile a new method for the named class.  It has a constructed
- name in the \"oo\" vocabulary.  (This code gets attached to \"-> :method\")
+ name in the "oo" vocabulary.  (This code gets attached to "-> :method")
 
 
 
@@ -208,7 +208,7 @@ Constructed name for an OO method; <class>:<method>
 
 : method; Finish defining a method.  Update our method table to point at
  this code using setMethod, which will also handle subclasses.  Leverage
- \";\" to handle code postlog.
+ ";" to handle code postlog.
 
 
 : trapSemi Catch closing a :method with a ; rather than method;
@@ -231,7 +231,7 @@ code (->) Runtime for compiled message invocation
    Enforce sanity check on class pointer
              Get method table for class
    Index for given selector, and invoke method
-Throw an error for an \"object\" who isn't formatted correctly
+Throw an error for an "object" who isn't formatted correctly
 
 : -> Send a message to object pointer on top of stack.  Compiles code
  to do this if we're compiling?, otherwise just executes directly.  Yes,
@@ -300,13 +300,13 @@ Switch to heap memory or bucket allocator
 
 
 
-The chars \"Meta\" at a named storage location
-: tagMeta Given a name string \"FOO\", return \"MetaFOO\" in allocated memory
+The chars "Meta" at a named storage location
+: tagMeta Given a name string "FOO", return "MetaFOO" in allocated memory
 
 
 Name of class & meta
  Superclass' meta, and generated metaclass
-: mkMeta Create metaclass of the class \"self\"... parse name from input
+: mkMeta Create metaclass of the class "self"... parse name from input
    Mint Meta<name>               Parent (self) metaclass
    Create new MetaClass, initialize common fields
    Stamp name onto metaclass
@@ -373,4 +373,3 @@ Abstract class for objects which hold objects
 
 
 
-"

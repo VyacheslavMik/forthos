@@ -1,4 +1,4 @@
-"
+
 
 
 
@@ -12,7 +12,7 @@ x86 assembler
 Various old stuff--mostly superseded by other parts of the system
 Real Time Clock support
 
-The rest of \"extras\" (1st part loaded to bootstrap the filesystem)
+The rest of "extras" (1st part loaded to bootstrap the filesystem)
 Object-oriented extensions
 Hiding of system internal names
 
@@ -23,4 +23,3 @@ Hiding of system internal names
 
 
 
-"

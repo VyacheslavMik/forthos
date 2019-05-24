@@ -1,21 +1,19 @@
-"\\                                                                    vandys
-\\ Dasm386.Seq            80386/80386SX Disassembler
+\                                                                    vandys
+\ Dasm386.Seq            80386/80386SX Disassembler
 
-\\ Pasm386.seq Version 1.0
-\\	Ported to ForthOS by Andy Valencia, November 2002
-\\
-\\       Updated 30 Sep 89, Gene Czarcinski
-\\               - Enhance to support 386 opcodes (for PASM386)
-\\               - restructure source to make it more readable
-\\                 and updatable.
-\\               - Add support for the 8087/80287/80387
-\\               - Add support for Extended Size Registers and operands.
-\\               - Add support for Extended Addressing Size (32 bit, etc.)
-\\                 including new base/index registers, \"scaling\", and
-\\                 32-bit displacement/addresses.
-\\               - add BEHEADing
-
-
+\ Pasm386.seq Version 1.0
+\	Ported to ForthOS by Andy Valencia, November 2002
+\
+\       Updated 30 Sep 89, Gene Czarcinski
+\               - Enhance to support 386 opcodes (for PASM386)
+\               - restructure source to make it more readable
+\                 and updatable.
+\               - Add support for the 8087/80287/80387
+\               - Add support for Extended Size Registers and operands.
+\               - Add support for Extended Addressing Size (32 bit, etc.)
+\                 including new base/index registers, "scaling", and
+\                 32-bit displacement/addresses.
+\               - add BEHEADing
 
 
 
@@ -23,24 +21,26 @@
 
 
 
-\\                                                                    vandys
-\\ ** Note:        The \"code error checking\" in this disassembler is not
-\\                complete.  That is, a correct program (no bad opcodes or
-\\                options) will be correct but incorrect opcodes, etc. may
-\\                not be interpreted correctly.  For example, currently
-\\                invalid 386 control registers are defined as correct.
-\\
-\\ ** Note:        Pasm386 does not need a 286 or 386 to load and execute.
-\\
-\\
-\\ DIS8086.SEQ   8086 Disassembler  by Charles Curley
-\\
-\\  PREFIX  \\ Conversion by  Bill Muench  9 September 88  Fixes
-\\
-\\ More 'Not Used' Trapped
-\\ XCHGA for nop  FES for 8reg INC DEC
-\\ REP REPNE  MUL/DIV  POP CS  ESC
-\\
+
+
+\                                                                    vandys
+\ ** Note:        The "code error checking" in this disassembler is not
+\                complete.  That is, a correct program (no bad opcodes or
+\                options) will be correct but incorrect opcodes, etc. may
+\                not be interpreted correctly.  For example, currently
+\                invalid 386 control registers are defined as correct.
+\
+\ ** Note:        Pasm386 does not need a 286 or 386 to load and execute.
+\
+\
+\ DIS8086.SEQ   8086 Disassembler  by Charles Curley
+\
+\  PREFIX  \ Conversion by  Bill Muench  9 September 88  Fixes
+\
+\ More 'Not Used' Trapped
+\ XCHGA for nop  FES for 8reg INC DEC
+\ REP REPNE  MUL/DIV  POP CS  ESC
+\
 
 
 
@@ -48,15 +48,15 @@
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 vocabulary disassembler
 only extensions also disassembler definitions
 
 decimal
 
-\\ ===========================================================================
+\ ===========================================================================
 
-\\ Emulate F83's column counter
+\ Emulate F83's column counter
 create #out 0 ,
 
 : SEXT ( n -- n' | sign extend byte to word )
@@ -73,18 +73,18 @@ create #out 0 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : Space space 1 #out +! ;
 : Emit emit 1 #out +! ;
 
-: (.H2)         ( n -- )        \\ 2 hex digits
+: (.H2)         ( n -- )        \ 2 hex digits
                 <# # # #>
 		dup #out +!
                 type ;
 
 : .H2           (.H2) Space ;
 
-: (.H4)         ( n -- )        \\ 4 hex digits
+: (.H4)         ( n -- )        \ 4 hex digits
                 <# # # # # #>
 		dup #out +!
                 type ;
@@ -98,23 +98,23 @@ create #out 0 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : COL           ( n )
                 dup #out @ <= if #out off cr then
                 #out @ - dup spaces #out +! ;
 
-variable SYMBOLIC \\ Show registers as forth registers
+variable SYMBOLIC \ Show registers as forth registers
   SYMBOLIC on
 
-variable Osize          \\ Operand Size Flag
+variable Osize          \ Operand Size Flag
          Osize on
 
-variable Asize          \\ Address Size Flag
+variable Asize          \ Address Size Flag
          Asize on
 
-variable CP     \\ Current Pointer to Instruction \"data\" being processed
-variable OPS    \\ operand count
-variable DISP   \\ 2nd operand ext, flag, ct
+variable CP     \ Current Pointer to Instruction "data" being processed
+variable OPS    \ operand count
+variable DISP   \ 2nd operand ext, flag, ct
 
 
 
@@ -123,18 +123,18 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
-: .NA           ( n )                   \\ unknown opcode
-                .\"   ??? \" 6 #out +! .H2 ;
+: .NA           ( n )                   \ unknown opcode
+                ."   ??? " 6 #out +! .H2 ;
 
-: .NA0          ( n - n )               \\ more of unknown opcode
+: .NA0          ( n - n )               \ more of unknown opcode
                 dup .NA ;
 
-: .NA1          ( op ext )              \\ unknown \"sub\" opcode
+: .NA1          ( op ext )              \ unknown "sub" opcode
                 swap .NA .H2 ;
 
-: .NA2          ( op1 op2 ext )         \\ unknown \"sub\" opcode
+: .NA2          ( op1 op2 ext )         \ unknown "sub" opcode
                 rot  .NA
                 swap .H2 .H2 ;
 
@@ -148,18 +148,18 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : T@            ( a - w ) w@ ;
 
 : TC@           ( a - n ) c@ ;
 
-: NEXTB         ( - n )                 \\ get byte, bump current-pointer
+: NEXTB         ( - n )                 \ get byte, bump current-pointer
                 CP @ TC@ 1 CP +! ;
 
-: NEXTW         ( - w )                 \\ get short word, bump current-pointer
+: NEXTW         ( - w )                 \ get short word, bump current-pointer
                 CP @ T@  2 CP +! ;
 
-: NEXTD         ( - n )                 \\ get word, bump current-pointer
+: NEXTD         ( - n )                 \ get word, bump current-pointer
                 CP @ @  4 CP +! ;
 
 
@@ -173,7 +173,7 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : dump|         ( a n )
                 bounds do
@@ -198,13 +198,13 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : .#
-                .\"  # \" 3 #out +! ;
+                ."  # " 3 #out +! ;
 
 : .,
-                .\" , \" 2 #out +! ;
+                ." , " 2 #out +! ;
 
 : ?.,           ( op - op )
                 dup $0C7 and 6
@@ -213,7 +213,7 @@ variable DISP   \\ 2nd operand ext, flag, ct
                 then ;
 
 : .FAR
-                .\" FAR \" 4 #out +! ;
+                ." FAR " 4 #out +! ;
 
 
 
@@ -223,11 +223,11 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : nuf?LL ;
 
-: .id|          ( nf \\ no trailing space )
+: .id|          ( nf \ no trailing space )
                 dup 1+
                 dup TC@
                 rot TC@
@@ -248,7 +248,7 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : ID.L          ( a )
                 #out @ swap
                 .id|
@@ -273,9 +273,9 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
-\\ Register Definitions
+\ Register Definitions
 
 .self  EAX      .self  EBX      .self  ECX      .self  EDX
 .self  ESI      .self  EDI      .self  ESP      .self  EBP
@@ -298,7 +298,7 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 .self AL        .self AX        .self [BX+SI]   .self [EAX]
 .self CL        .self CX        .self [BX+DI]   .self [ECX]
 .self DL        .self DX        .self [BP+SI]   .self [EDX]
@@ -323,9 +323,9 @@ variable DISP   \\ 2nd operand ext, flag, ct
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
-\\ Instruction Opcode Mnemonics
+\ Instruction Opcode Mnemonics
 
 self.l  FADD    self.l  FMUL    self.l  FCOM    self.l  FCOMP
 self.l  FSUB    self.l  FSUBR   self.l  FDIV    self.l  FDIVR
@@ -348,7 +348,7 @@ self.l  FLDENV  self.l  FLDCW   self.l  FSTENV  self.l  FSTCW
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 self.l CLTS
 self.l SGDT     self.l SIDT
 self.l LGDT     self.l LIDT
@@ -373,7 +373,7 @@ self.l ENTER    self.l LEAVE
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 self.l JA       self.l JAE      self.l JB       self.l JBE
 self.l JE       self.l JG       self.l JGE      self.l JL
 self.l JLE      self.l JNE      self.l JNO      self.l JNS
@@ -398,7 +398,7 @@ self.l SETO     self.l SETPE    self.l SETPO    self.l SETS
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 self.l AAM      self.l AAD      self.l XLAT
 self.l XCHG     self.l CBW      self.l CWD
 self.l JMP      self.l CALL
@@ -423,7 +423,7 @@ self.l LAR      self.l LSL
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 self.l DAA      self.l DAS      self.l AAA      self.l AAS
 self.l ADD      self.l ADC      self.l AND      self.l XOR
 self.l OR       self.l SBB      self.l SUB      self.l CMP
@@ -434,7 +434,7 @@ self.l LEA      self.l MOV
 
 self.l PUSH     self.l POP      self.l PUSHA    self.l POPA
 
-\\ ===========================================================================
+\ ===========================================================================
 
 self.l NEXT   self.l 1PUSH  self.l 2PUSH
 self.l BRAN1  self.l PLOOP
@@ -448,7 +448,7 @@ self.l BRAN1  self.l PLOOP
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : ?DISP         ( op ext - op ext | ?mod disp )
                 dup 6 rshift ?dup
@@ -473,12 +473,12 @@ self.l BRAN1  self.l PLOOP
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .SYMBOL       ( a | name or value )
  dup (bestent) ?dup if
   rot drop
   cell+ cell+ dup c@ $1F and #out +!
-  .id ?dup if .\" +\" str dup 1+ #out +! type then
+  .id ?dup if ." +" str dup 1+ #out +! type then
  else
   str dup #out +! type
  then ;
@@ -498,7 +498,7 @@ create .SIZE_tab ' BYTE , ' word , ' BYTE , ' DWORD ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .word/DWORD   ( -- )
                 Osize@ if DWORD else word then
                 Space ;
@@ -523,7 +523,7 @@ create .16REG_tab ' AX , ' CX , ' DX , ' BX , ' SP , ' BP , ' SI , ' DI ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .REG          ( op ext - op ext )
                 2dup 3 rshift
                 .R8/16 ;
@@ -532,11 +532,11 @@ create .AL/X_tab ' AL , ' AX , ' AL , ' EAX ,
 : .AL/X         ( op )
                 1 and Osize@ 2 and or .AL/X_tab exec: ;
 
-\\ ===========================================================================
+\ ===========================================================================
 
-: 0DISP .\" 0 \" 2 #out +! ;
+: 0DISP ." 0 " 2 #out +! ;
 
-: BDISP                                         \\ byte displacement
+: BDISP                                         \ byte displacement
                 CP @ DISP @ +
                 TC@
                 1 OPS +!
@@ -548,13 +548,13 @@ create .AL/X_tab ' AL , ' AX , ' AL , ' EAX ,
 
 
 
-\\                                                                    vandys
-: WDISP                                         \\ word displacement
+\                                                                    vandys
+: WDISP                                         \ word displacement
                 CP @ DISP @ +
                 T@ .H4
                 2 OPS +! ;
 
-: DDISP                                         \\ word displacement
+: DDISP                                         \ word displacement
                 CP @ DISP @ + dup
                 T@
                 swap 2 +
@@ -573,7 +573,7 @@ create .AL/X_tab ' AL , ' AX , ' AL , ' EAX ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create .DISP_tab ' 0DISP , ' BDISP , ' WDISP , ' .r/M ,
 : .DISP         ( op ext - op ext )
                 dup 6 rshift 3 and .DISP_tab exec: ;
@@ -598,7 +598,7 @@ create .DISP32_tab ' 0DISP , ' BDISP , ' DDISP , ' .r/M ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : BIMM          ( byte immediate )
                 .#
                 CP @ DISP @ +
@@ -623,7 +623,7 @@ create .DISP32_tab ' 0DISP , ' BDISP , ' DDISP , ' .r/M ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .IMM          ( op )
                 1 and if
                      WIMM
@@ -648,7 +648,7 @@ create .DISP32_tab ' 0DISP , ' BDISP , ' DDISP , ' .r/M ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create .MREG32regs_tab ' [EAX] , ' [ECX] , ' [EDX] , ' [EBX] ,
 	' nuf?LL , ' [EBP] , ' [ESI] , ' [EDI] ,
@@ -657,7 +657,7 @@ create .MREG32regs_tab ' [EAX] , ' [ECX] , ' [EDX] , ' [EBX] ,
 
 create .MREG32-2_tab ' *1 , ' *2 , ' *4 , ' *8 ,
 : .MREG32-2     ( op ext | 2nd byte of extended addr - SSndxBASE )
-                NEXTB                           \\ SS-Index-Base
+                NEXTB                           \ SS-Index-Base
                 dup $C7 and 5 = if
                      DDISP
                 else
@@ -673,9 +673,9 @@ create .MREG32-2_tab ' *1 , ' *2 , ' *4 , ' *8 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .MREG32       ( op ext | 32 bit address )
-                dup $C7 and 5 = if             \\ mod=0 R/M=6
+                dup $C7 and 5 = if             \ mod=0 R/M=6
                      DDISP
                      exit
                 then
@@ -698,11 +698,11 @@ create .MREG32-2_tab ' *1 , ' *2 , ' *4 , ' *8 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create .MREG_tab ' [BX+SI] , ' [BX+DI] , ' [BP+SI] , ' [BP+DI] ,
 		' [SI] , ' [DI] , ' [BP] , ' [BX] ,
 : .MREG         ( op ext - op ext | reg + disp )
-                dup $C0 and $C0 = if           \\ mod=3
+                dup $C0 and $C0 = if           \ mod=3
                      .r/M
                      exit
                 then
@@ -710,12 +710,12 @@ create .MREG_tab ' [BX+SI] , ' [BX+DI] , ' [BP+SI] , ' [BP+DI] ,
                      .MREG32
                      exit
                 then
-                dup $C7 and 6 = if             \\ mod=0 R/M=6
+                dup $C7 and 6 = if             \ mod=0 R/M=6
                      WDISP
                      exit
                 then
                 .DISP
-                dup 7 and                      \\ mod=1 or 2
+                dup 7 and                      \ mod=1 or 2
                 .MREG_tab exec: ;
 
 
@@ -723,7 +723,7 @@ create .MREG_tab ' [BX+SI] , ' [BX+DI] , ' [BP+SI] , ' [BP+DI] ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create .SEG_tab ' ES , ' CS , ' SS , ' DS ,
 : .SEG          ( op )
@@ -748,7 +748,7 @@ create .SEG_tab ' ES , ' CS , ' SS , ' DS ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : P/P_1         ( op )
                 dup 1 and if POP else PUSH then ;
@@ -773,7 +773,7 @@ create .ADJ_tab ' DAA , ' DAS , ' AAA , ' AAS ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create .ALU_tab ' ADD , ' OR , ' ADC , ' SBB , ' AND ,
     ' SUB , ' XOR , ' CMP ,
 : .ALU          ( op )
@@ -798,7 +798,7 @@ create .ALU_tab ' ADD , ' OR , ' ADC , ' SBB , ' AND ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create 00-3F_tab ' ALU , ' ALU , ' ALU , ' ALU , ' ALU , ' ALU ,
 		' P/SEG , ' P/ADJ ,
@@ -823,7 +823,7 @@ create 00-3F_tab ' ALU , ' ALU , ' ALU , ' ALU , ' ALU , ' ALU ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 
 create 40-5F_1_tab ' INC , ' DEC , ' PUSH , ' POP ,
@@ -848,7 +848,7 @@ create 40-5F_1_tab ' INC , ' DEC , ' PUSH , ' POP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : PUSHi
                 PUSH
                 dup $68 = if
@@ -873,7 +873,7 @@ create 40-5F_1_tab ' INC , ' DEC , ' PUSH , ' POP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : 6C-6D         ( op )
                 INS  .SIZE  ;
 
@@ -898,7 +898,7 @@ create 40-5F_1_tab ' INC , ' DEC , ' PUSH , ' POP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : IMUL6x        ( op )
                 IMUL
                 dup .SIZE Space
@@ -923,7 +923,7 @@ create 40-5F_1_tab ' INC , ' DEC , ' PUSH , ' POP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create 60-6F_tab
                       ' Pall , ' Pall ,
                       ' i62 , ' i63 ,
@@ -948,7 +948,7 @@ create 60-6F_tab
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create .BR|_tab ' JO , ' JNO , ' JB , ' JAE , ' JE , ' JNE , ' JBE ,
     ' JA , ' JS , ' JNS , ' JPE , ' JPO , ' JL , ' JGE , ' JLE , ' JG ,
 : .BR|          ( op )
@@ -958,7 +958,7 @@ create .BR|_tab ' JO , ' JNO , ' JB , ' JAE , ' JE , ' JNE , ' JBE ,
                 .BR|
                 NEXTB SEXT CP @ + .SYMBOL ;
 
-\\ ===========================================================================
+\ ===========================================================================
 
 create 40-7F_tab ' 40-5F , ' 40-5F , ' 60-6F , ' 70-7F ,
 : 40-7F         ( op | 40-7F )
@@ -973,7 +973,7 @@ create 40-7F_tab ' 40-5F , ' 40-5F , ' 60-6F , ' 70-7F ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : ALU#1         ( op | 80-81 )
                 NEXTB
@@ -998,7 +998,7 @@ create 40-7F_tab ' 40-5F , ' 40-5F , ' 60-6F , ' 70-7F ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create ALU#2_tab ' ALU#2b , ' ALU#2c , ' ALU#2b , ' ALU#2b ,
     ' ALU#2c , ' ALU#2b , ' ALU#2c , ' ALU#2b ,
 : ALU#2         ( op | 82-83 )
@@ -1023,7 +1023,7 @@ create ALU#2_tab ' ALU#2b , ' ALU#2c , ' ALU#2b , ' ALU#2b ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 
 : 84-85         ( op | r/m reg )
@@ -1048,7 +1048,7 @@ create ALU#2_tab ' ALU#2b , ' ALU#2c , ' ALU#2b , ' ALU#2b ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : MOVRM/REG     ( op | 88-89 )
                 MOV
@@ -1073,7 +1073,7 @@ create ALU#2_tab ' ALU#2b , ' ALU#2c , ' ALU#2b , ' ALU#2b ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : MOVS>M        ( op | 8C-8F )
                 NEXTB
                 over $8D = if
@@ -1098,7 +1098,7 @@ create ALU#2_tab ' ALU#2b , ' ALU#2c , ' ALU#2b , ' ALU#2b ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
                           dup $20 and if
                                .NA1
                                exit
@@ -1123,7 +1123,7 @@ create ALU#2_tab ' ALU#2b , ' ALU#2c , ' ALU#2b , ' ALU#2b ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create 8MOVS_tab ' ALU#1 , ' ALU#2 , ' 84-85 , ' 86-87 ,
     ' MOVRM/REG , ' MOVD , ' MOVS>M , ' MOVS>M ,
 : 8MOVS         ( op | 80-8F )
@@ -1148,10 +1148,10 @@ create 8MOVS_tab ' ALU#1 , ' ALU#2 , ' 84-85 , ' 86-87 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 
-: INTER                                 \\ interseg jmp or call
+: INTER                                 \ interseg jmp or call
                 .FAR
                 Asize@ if NEXTD else NEXTW then
                 NEXTW
@@ -1173,10 +1173,10 @@ create 8MOVS_tab ' ALU#1 , ' ALU#2 , ' 84-85 , ' 86-87 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : XCHGA         ( op | 90-97 )
                 dup $90 = if
-                     .\" nop \" 4 #out +!
+                     ." nop " 4 #out +!
                      drop
                 else
                      XCHG
@@ -1198,7 +1198,7 @@ create 98-9F_tab ' CBW , ' CWD , ' CALLI , ' WAIT ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : 90S           ( op | 90-9F )
                 dup 3 rshift 1 and if 98-9F else XCHGA then ;
@@ -1223,7 +1223,7 @@ create 98-9F_tab ' CBW , ' CWD , ' CALLI , ' WAIT ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : A0-A3         ( op | A0-A3 )
                 MOV
@@ -1248,7 +1248,7 @@ create 98-9F_tab ' CBW , ' CWD , ' CALLI , ' WAIT ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : AA-AB         ( op | AA-AB )
                 STOS    .SIZE ;
 
@@ -1273,7 +1273,7 @@ create A0S_tab ' A0-A3 , ' A0-A3 , ' A4-A5 , ' A6-A7 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 : MOV#          ( op | B0-BF )
                 MOV
@@ -1283,7 +1283,7 @@ create A0S_tab ' A0-A3 , ' A0-A3 , ' A4-A5 , ' A6-A7 ,
                      .8REG  ., BIMM
                 then ;
 
-\\ ===========================================================================
+\ ===========================================================================
 create 80-BF_tab ' 8MOVS , ' 90S , ' A0S , ' MOV# ,
 : 80-BF         ( op | 80-BF )
                 dup 4 rshift 3 and 80-BF_tab exec: ;
@@ -1298,7 +1298,7 @@ create 80-BF_tab ' 8MOVS , ' 90S , ' A0S , ' MOV# ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
     ' SHL , ' SHR , ' .NA0 , ' SAR ,
@@ -1308,14 +1308,14 @@ create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
 : Shift+Immed   ( op | C0-C1 )
                 NEXTB
                 dup 3 rshift 7 and
-                6 = if                  \\ 110 is invalid
+                6 = if                  \ 110 is invalid
                      .NA1
                      exit
                 then
-                dup .SHIFTS             \\ print opcode
-                .MREG                   \\ and operand
-                2drop                   \\ opcode and extension
-                ., BIMM ;               \\ Immediate code
+                dup .SHIFTS             \ print opcode
+                .MREG                   \ and operand
+                2drop                   \ opcode and extension
+                ., BIMM ;               \ Immediate code
 
 
 
@@ -1323,13 +1323,13 @@ create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : Enter/Leave   ( op | C8-C9 )
-                $C8 = if                \\ Enter
+                $C8 = if                \ Enter
                      ENTER
                      NEXTW  Space .H4
                      NEXTB  Space .H2
-                else                    \\ Leave
+                else                    \ Leave
                      leave
                 then ;
 
@@ -1339,7 +1339,7 @@ create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
                      .FAR
                 then
                 1 and 0= if
-                     WDISP ( ??? ) .\" +SP\" 3 #out +!
+                     WDISP ( ??? ) ." +SP" 3 #out +!
                 then ;
 
 
@@ -1348,7 +1348,7 @@ create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .L/L          ( op )
                 1 and if LDS else LES then ;
 
@@ -1373,7 +1373,7 @@ create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : CC-CD         ( op | CC-CD )
                 INT
                 1 and if
@@ -1398,7 +1398,7 @@ create .SHIFTS_tab ' ROL , ' ROR , ' RCL , ' RCR ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create C0S_tab ' Shift+Immed , ' CxRET , ' LES/LDS , ' MOV#R/M ,
     ' Enter/Leave , ' CxRET , ' CC-CD , ' INTO/IRET ,
@@ -1423,20 +1423,20 @@ create C0S_tab ' Shift+Immed , ' CxRET , ' LES/LDS , ' MOV#R/M ,
 
 
 
-\\                                                                    vandys
-: SHIFTS        ( op | D0-D3 )          \\ 2-byte code,
-					\\ $D0-$D3 plus 2nd byte for ModnnnR/M
+\                                                                    vandys
+: SHIFTS        ( op | D0-D3 )          \ 2-byte code,
+					\ $D0-$D3 plus 2nd byte for ModnnnR/M
                 NEXTB
                 dup 3 rshift 7 and
-                6 = if                  \\ 110 is invalid
+                6 = if                  \ 110 is invalid
                      .NA1
                      exit
                 then
-                dup .SHIFTS             \\ print opcode
-                .memSIZE                \\ and operand size
-                .MREG ?.,               \\ and operand
+                dup .SHIFTS             \ print opcode
+                .memSIZE                \ and operand size
+                .MREG ?.,               \ and operand
                 drop
-                2 and if               \\ $D2 and $D3 by CL
+                2 and if               \ $D2 and $D3 by CL
                      CL
                 else
                      .# 1 .H2
@@ -1448,12 +1448,12 @@ create C0S_tab ' Shift+Immed , ' CxRET , ' LES/LDS , ' MOV#R/M ,
 
 
 
-\\                                                                    vandys
-: iD4           ( op | D4 )             \\ ASCII adjust for multiply
+\                                                                    vandys
+: iD4           ( op | D4 )             \ ASCII adjust for multiply
                 AAM NEXTB
                 2drop ;
 
-: iD5           ( op | D5 )             \\ ASCII adjust for divide
+: iD5           ( op | D5 )             \ ASCII adjust for divide
                 AAD NEXTB
                 2drop ;
 
@@ -1473,7 +1473,7 @@ create C0S_tab ' Shift+Immed , ' CxRET , ' LES/LDS , ' MOV#R/M ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create .ST(i)_tab ' ST(0) , ' ST(1) , ' ST(2) , ' ST(3) ,
     ' ST(4) , ' ST(5) , ' ST(6) , ' ST(7) ,
 : .ST(i)        ( ext )
@@ -1498,7 +1498,7 @@ create .ST_1_tab ' .ST, , ' .ST, , ' nuf?LL , ' nuf?LL ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create Ftype_tab ' REAL*4 , ' REAL*4 , ' REAL*4 , ' nuf?LL ,
     ' Integer*4 , ' Integer*4 , ' Integer*4 , ' REAL_TEMP ,
     ' REAL*8 , ' REAL*8 , ' REAL*8 , ' nuf?LL ,
@@ -1513,8 +1513,8 @@ create Fmath_tab ' FADD , ' FMUL , ' FCOM , ' FCOMP ,
                 dup 3 rshift 7 and Fmath_tab exec: ;
 
 : Fxx           ( op ext )
-                .\" F:\" 2 #out +!
-                2dup swap (.H2) .\" -\" 1 #out +! (.H2) .\"  \" 1 #out +! ;
+                ." F:" 2 #out +!
+                2dup swap (.H2) ." -" 1 #out +! (.H2) ."  " 1 #out +! ;
 
 : F0mod11       ( ext )
                 Fmath .ST_1 .ST(i) ;
@@ -1523,7 +1523,7 @@ create Fmath_tab ' FADD , ' FMUL , ' FCOM , ' FCOMP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create F1mod11_tab ' FCHS , ' FABS , ' Fxx , ' Fxx ,
     ' FTST , ' FXAM , ' Fxx , ' Fxx ,
     ' FLD1 , ' FLDL2T , ' FLDL2E , ' FLDPI ,
@@ -1548,7 +1548,7 @@ create F1mod11_tab ' FCHS , ' FABS , ' Fxx , ' Fxx ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create F3mod11_tab ' FENI , ' FDISI , ' FCLEX , ' FINIT , ' FSETPM ,
 : F3mod11       ( ext )
                 dup $E4 > if Fxx exit then
@@ -1573,7 +1573,7 @@ create F5mod11op_tab ' FFREE , ' FXCH , ' FST , ' FSTP , ' FUCOM , ' FUCOMP  ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create F6mod11P_tab ' FADDP , ' FMULP , ' FCOMP , ' Fxx ,
     ' FSUBP , ' FSUBRP , ' FDIVP , ' FDIVRP ,
 : F6mod11P      ( ext )
@@ -1598,7 +1598,7 @@ create F7mod11op_tab ' FFREEP , ' FXCH , ' FSTP , ' FSTP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create Fmod11_tab ' F0mod11 , ' F1mod11 , ' F2mod11 , ' F3mod11 ,
     ' F4mod11 , ' F5mod11 , ' F6mod11 , ' F7mod11 ,
 : Fmod11        ( op ext )
@@ -1623,9 +1623,9 @@ create Fodd_tab ' FLD , ' Fxx , ' FST , ' FSTP ,
 
 
 
-\\                                                                    vandys
-: F_387         ( op -- )               \\ Floating Point CoProcessor
-                NEXTB                   \\ a 2-byte instruction
+\                                                                    vandys
+: F_387         ( op -- )               \ Floating Point CoProcessor
+                NEXTB                   \ a 2-byte instruction
                 dup $C0 and $C0 = if
                      Fmod11
                 else
@@ -1648,7 +1648,7 @@ create Fodd_tab ' FLD , ' Fxx , ' FST , ' FSTP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create D0S_tab ' SHIFTS , ' SHIFTS , ' SHIFTS , ' SHIFTS ,
     ' iD4 , ' iD5 , ' .NA , ' iD7 ,
     ' F_387 , ' F_387 , ' F_387 , ' F_387 ,
@@ -1673,7 +1673,7 @@ create D0S_tab ' SHIFTS , ' SHIFTS , ' SHIFTS , ' SHIFTS ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .LOOPj        Osize@ if JECXZ else JCXZ then ;
 
 create .loop_tab ' LOOPNE , ' LOOPE , ' LOOP , ' .LOOPj ,
@@ -1698,15 +1698,15 @@ create .loop_tab ' LOOPNE , ' LOOPE , ' LOOP , ' .LOOPj ,
 
 
 
-\\                                                                    vandys
-: IO#           ( op | E4-E7 )          \\ IN/OUT with immediate port number
+\                                                                    vandys
+: IO#           ( op | E4-E7 )          \ IN/OUT with immediate port number
                 dup 2 and if
                      OUT BIMM .AL/X
                      exit
                 then
                 IN .AL/X ., BIMM ;
 
-: IOX           ( op | EC-EF )          \\ IN/OUT with port in DX
+: IOX           ( op | EC-EF )          \ IN/OUT with port in DX
                 dup 2 and if
                      OUT DX ., .AL/X
                      exit
@@ -1723,7 +1723,7 @@ create .loop_tab ' LOOPNE , ' LOOPE , ' LOOP , ' .LOOPj ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create .CALL_tab ' CALL , ' JMP , ' JMP , ' JMP ,
 : .CALL         ( op )
                 3 and .CALL_tab exec: ;
@@ -1748,7 +1748,7 @@ create .CALL_tab ' CALL , ' JMP , ' JMP , ' JMP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : CALLS         ( op | E8-EB )
                 dup .CALL dup
                 2 and if
@@ -1773,7 +1773,7 @@ create .CALL_tab ' CALL , ' JMP , ' JMP , ' JMP ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create E0S_tab ' LOOPS , ' IO# , ' CALLS , ' IOX ,
 : E0S           ( op | E0-EF )
@@ -1798,7 +1798,7 @@ create E0S_tab ' LOOPS , ' IO# , ' CALLS , ' IOX ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : F6-F7test     ( op ext | F6-F7 )
                 TEST
                 .memSIZE
@@ -1823,7 +1823,7 @@ create .MUL/DIV_tab ' MUL , ' IMUL , ' DIV , ' IDIV ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .not/NEG      ( ext )
                 3 rshift 1 and if NEG else NOT then ;
 
@@ -1835,8 +1835,8 @@ create .MUL/DIV_tab ' MUL , ' IMUL , ' DIV , ' IDIV ,
 
 create F6-F7S_tab ' F6-F7test , ' .NA1 , ' not/NEG , ' not/NEG ,
     ' MUL/DIV , ' MUL/DIV , ' MUL/DIV , ' MUL/DIV ,
-: F6-F7S        ( op | F6-F7 )                  \\ opcode was $F6 or $F7,
-                NEXTB                           \\ look at next byte (subcode)
+: F6-F7S        ( op | F6-F7 )                  \ opcode was $F6 or $F7,
+                NEXTB                           \ look at next byte (subcode)
                 dup 3 rshift 7 and
                 F6-F7S_tab exec: ;
 
@@ -1848,24 +1848,24 @@ create F6-F7S_tab ' F6-F7test , ' .NA1 , ' not/NEG , ' not/NEG ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .FES          ( ext )
                 3 rshift 1 and if DEC else INC then ;
 
-: FES           ( op | FE )                     \\ opcode was $FE,
-						\\  look at next byte
+: FES           ( op | FE )                     \ opcode was $FE,
+						\  look at next byte
                 NEXTB
                 dup 3 rshift
-                6 and if                       \\ only 000 and 001 are valid
+                6 and if                       \ only 000 and 001 are valid
                      .NA1 exit
                 then
                 dup
-                .FES                            \\ INC/DEC op-subcode
-                .MREG                           \\ operand
-                $C0 and $C0 <> if              \\ size of operand
+                .FES                            \ INC/DEC op-subcode
+                .MREG                           \ operand
+                $C0 and $C0 <> if              \ size of operand
                      dup Space .SIZE
                 then
-                drop ;                          \\ done
+                drop ;                          \ done
 
 
 
@@ -1873,7 +1873,7 @@ create F6-F7S_tab ' F6-F7test , ' .NA1 , ' not/NEG , ' not/NEG ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .FF_CALL/JMP  ( ext )
                 2/ 1 and if CALL else JMP then ;
 
@@ -1898,18 +1898,18 @@ create F6-F7S_tab ' F6-F7test , ' .NA1 , ' not/NEG , ' not/NEG ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : FF_INC        ( op ext | FF )
-                dup .FF_INC                     \\ INC or DEC
-                .MREG                           \\ operand
-                $C0 and $C0 <> if              \\ size of operand
+                dup .FF_INC                     \ INC or DEC
+                .MREG                           \ operand
+                $C0 and $C0 <> if              \ size of operand
                      dup Space .SIZE
                 then
-                drop ;                          \\ trash opcode and done
+                drop ;                          \ trash opcode and done
 
 create FFS_tab ' FF_INC , ' FF_CALL/JMP , ' FF_CALL/JMP , ' FF_PUSH ,
-: FFS           ( op | FF )                     \\ opcode was $FF,
-						\\  look at next byte
+: FFS           ( op | FF )                     \ opcode was $FF,
+						\  look at next byte
                 NEXTB dup 4 rshift 3 and FFS_tab exec: ;
 
 : .NAF1         ( a - a )
@@ -1923,7 +1923,7 @@ create FFS_tab ' FF_INC , ' FF_CALL/JMP , ' FF_CALL/JMP , ' FF_PUSH ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create F0S_tab ' LOCK , ' .NAF1 , ' REPNE , ' REP ,
     ' HLT , ' CMC , ' F6-F7S , ' F6-F7S ,
     ' CLC , ' STC , ' CLI , ' STI ,
@@ -1935,7 +1935,7 @@ create F0S_tab ' LOCK , ' .NAF1 , ' REPNE , ' REP ,
                    nip
                 then F0S_tab exec: ;
 
-\\ ===========================================================================
+\ ===========================================================================
 
 create C0-FF_tab ' C0S , ' D0S , ' E0S , ' F0S ,
 : C0-FF         ( op | C0-FF )
@@ -1948,7 +1948,7 @@ create C0-FF_tab ' C0S , ' D0S , ' E0S , ' F0S ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : x06           ( op1 op2 | 06 )
                 CLTS 2drop ;
 
@@ -1973,7 +1973,7 @@ create C0-FF_tab ' C0S , ' D0S , ' E0S , ' F0S ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create x01_1_tab ' SGDT , ' SIDT , ' LGDT , ' LIDT ,
     ' SMSW , ' SMSW , ' LMSW , ' LMSW  ,
 : x01_1         x01_1_tab exec: ;
@@ -1998,7 +1998,7 @@ create x01_1_tab ' SGDT , ' SIDT , ' LGDT , ' LIDT ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create x00_1_tab ' SLDT , ' str , ' LLDT , ' LTR ,
     ' VERR , ' VERW , ' VERR , ' VERW  ,
 : x00_1         x00_1_tab exec: ;
@@ -2023,7 +2023,7 @@ create x00_1_tab ' SLDT , ' str , ' LLDT , ' LTR ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create x00S_tab ' x00 , ' x01 , ' x02 , ' x02 ,
     ' .NA1 , ' .NA1 , ' x06 , ' .NA1 ,
     ' .NA1 , ' .NA1 , ' .NA1 , ' .NA1 ,
@@ -2048,7 +2048,7 @@ create x00S_tab ' x00 , ' x01 , ' x02 , ' x02 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create .Exx_tab ' EAX , ' ECX , ' EDX , ' EBX , ' ESP , ' EBP , ' ESI , ' EDI ,
 : .Exx  7 and .Exx_tab exec: ;
@@ -2073,8 +2073,8 @@ create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
 
 
 
-\\                                                                    vandys
-: x20           ( op1 op2 | 0f20 )      \\ e.g., MOV EAX, CR0
+\                                                                    vandys
+: x20           ( op1 op2 | 0f20 )      \ e.g., MOV EAX, CR0
                 MOV NEXTB
                 dup $C0 and $C0 <> if
                         .NA2 exit
@@ -2085,7 +2085,7 @@ create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
                 3 rshift .CRx
                 2drop ;
 
-: x21           ( op1 op2 | 0f21 )      \\ e.g., MOV EAX, DR0
+: x21           ( op1 op2 | 0f21 )      \ e.g., MOV EAX, DR0
                 MOV NEXTB
                 dup $C0 and $C0 <> if
                         .NA2 exit
@@ -2098,8 +2098,8 @@ create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
 
 
 
-\\                                                                    vandys
-: x22           ( op1 op2 | 0f22 )      \\ e.g., MOV CR0, EAX
+\                                                                    vandys
+: x22           ( op1 op2 | 0f22 )      \ e.g., MOV CR0, EAX
                 MOV NEXTB
                 dup $C0 and $C0 <> if
                         .NA2 exit
@@ -2110,7 +2110,7 @@ create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
                 .Exx
                 2drop ;
 
-: x23           ( op1 op2 | 0f23 )      \\ e.g., MOV DR0, EAX
+: x23           ( op1 op2 | 0f23 )      \ e.g., MOV DR0, EAX
                 MOV NEXTB
                 dup $C0 and $C0 <> if
                         .NA2 exit
@@ -2123,8 +2123,8 @@ create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
 
 
 
-\\                                                                    vandys
-: x24           ( op1 op2 | 0f24 )      \\ e.g., MOV EAX, TR6
+\                                                                    vandys
+: x24           ( op1 op2 | 0f24 )      \ e.g., MOV EAX, TR6
                 MOV NEXTB
                 dup $C0 and $C0 <> if
                         .NA2 exit
@@ -2135,7 +2135,7 @@ create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
                 3 rshift .TRx
                 2drop ;
 
-: x26           ( op1 op2 | 0f26 )      \\ e.g., MOV TR6, EAX
+: x26           ( op1 op2 | 0f26 )      \ e.g., MOV TR6, EAX
                 MOV NEXTB
                 dup $C0 and $C0 <> if
                         .NA2 exit
@@ -2148,7 +2148,7 @@ create .TRx_tab ' TR0 , ' TR1 , ' TR2 , ' TR3 , ' TR4 , ' TR5 , ' TR6 , ' TR7 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create x20S_tab ' x20 , ' x21 , ' x22 , ' x23 ,
     ' x24 , ' .NA1 , ' x26 , ' .NA1 ,
     ' .NA1 , ' .NA1 , ' .NA1 , ' .NA1 ,
@@ -2173,7 +2173,7 @@ create x20S_tab ' x20 , ' x21 , ' x22 , ' x23 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create 0F/00-3F_tab ' x00S , ' .NA1 , ' x20S , ' .NA1 ,
 : 0F/00-3F      ( op1 op2 -- )
@@ -2198,20 +2198,20 @@ create 0F/00-3F_tab ' x00S , ' .NA1 , ' x20S , ' .NA1 ,
 
 
 
-\\                                                                    vandys
-: BTcom                         \\ common for BT, BTR, BTC, BTS
+\                                                                    vandys
+: BTcom                         \ common for BT, BTR, BTC, BTS
                 2drop
                 NEXTB
                 .MREG ?.,
                 3 rshift .16REG ;
 
 
-\\ ===========================================================================
-\\ ===========================================================================
+\ ===========================================================================
+\ ===========================================================================
 
-: x80S          ( op1 op2 -- )          \\ 2-byte displacement conditional jumps
+: x80S          ( op1 op2 -- )          \ 2-byte displacement conditional jumps
                 .BR|  drop
-                .\" LONG  \" 5 #out +!
+                ." LONG  " 5 #out +!
 		Osize@ if NEXTD else NEXTW WSEXT then
 		CP @ + .H8 ;
 
@@ -2223,7 +2223,7 @@ create 0F/00-3F_tab ' x00S , ' .NA1 , ' x20S , ' .NA1 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 
 create .SET|_tab ' SETO , ' SETNO , ' SETB , ' SETAE ,
     ' SETE , ' SETNE , ' SETBE , ' SETA ,
@@ -2248,7 +2248,7 @@ create .SET|_tab ' SETO , ' SETNO , ' SETB , ' SETAE ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : xA0           PUSH FS 2drop ;
 : xA1           POP  FS 2drop ;
 : xA8           PUSH GS 2drop ;
@@ -2273,19 +2273,19 @@ create .SET|_tab ' SETO , ' SETNO , ' SETB , ' SETAE ,
 
 
 
-\\                                                                    vandys
-: sh_dbl        ( op1 op2 -- )          \\ common
-                1                       \\ to fake out .MREG
+\                                                                    vandys
+: sh_dbl        ( op1 op2 -- )          \ common
+                1                       \ to fake out .MREG
                 NEXTB
                 .word/DWORD
                 .MREG ?.,
                 3 rshift .16REG .,
-                drop                    \\ the fake
+                drop                    \ the fake
                 1 and 0= if
                          OPS @ CP +!  OPS off
                          NEXTB .# .H2
                 else
-                        .\"  CL\" 3 #out +!
+                        ."  CL" 3 #out +!
                 then
                 drop ;
 
@@ -2298,7 +2298,7 @@ create .SET|_tab ' SETO , ' SETNO , ' SETB , ' SETAE ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : IMULaf        ( op1 op2 | 0fAF )
                 IMUL
                 .word/DWORD
@@ -2323,7 +2323,7 @@ create xA0S_tab ' xA0 , ' xA1 , ' .NA1 , ' xA3 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : Lxs           ( op1 op2 )
                 2drop
                 NEXTB
@@ -2348,7 +2348,7 @@ create xA0S_tab ' xA0 , ' xA1 , ' .NA1 , ' xA3 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .BSx          1 and exec: if BSR else BSF then ;
 
 : BSx           ( op1 op2 -- )
@@ -2373,17 +2373,17 @@ create xA0S_tab ' xA0 , ' xA1 , ' .NA1 , ' xA3 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create .BTi_tab ' BT , ' BTS , ' BTR , ' BTC ,
 : .BTi          ( ext -- ext )
                 dup 3 rshift 3 and .BTi_tab exec: ;
 
-: BTi           ( op1 op2 | BA )        \\ BT with immediate
-                NEXTB                   \\ need 3rd byte
-                dup $20 and 0= if      \\ oops -- bad code
+: BTi           ( op1 op2 | BA )        \ BT with immediate
+                NEXTB                   \ need 3rd byte
+                dup $20 and 0= if      \ oops -- bad code
                         .NA2 exit
                 then
-                .BTi                    \\ print the opcode
+                .BTi                    \ print the opcode
                 .word/DWORD
                 .MREG drop
                 OPS @ CP +!  OPS off
@@ -2398,8 +2398,8 @@ create .BTi_tab ' BT , ' BTS , ' BTR , ' BTC ,
 
 
 
-\\                                                                    vandys
-: Mcom                  \\ common code for MOVSX, MOVZX
+\                                                                    vandys
+: Mcom                  \ common code for MOVSX, MOVZX
                 NEXTB
                 dup 3 rshift .16REG .,
                 .MREG drop
@@ -2423,7 +2423,7 @@ create xB0S_tab ' .NA1 , ' .NA1 , ' xB2 , ' xB3 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 create 0F/80-BF_tab ' x80S , ' x90S , ' xA0S , ' xB0S ,
 : 0F/80-BF      ( op1 op2 -- )
                 dup 4 rshift 3 and 0F/80-BF_tab exec: ;
@@ -2448,17 +2448,17 @@ create 0F/80-BF_tab ' x80S , ' x90S , ' xA0S , ' xB0S ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .Prefix       ( -- )
                 drop
-                25 COL .\" <prefix>\" 8 #out +! ;
+                25 COL ." <prefix>" 8 #out +! ;
 
 create .INST_1_tab ' 00-3F , ' 40-7F , ' 80-BF , ' C0-FF ,
-: .INST_1                       \\ 1-byte opcodes
+: .INST_1                       \ 1-byte opcodes
                 dup 6 rshift .INST_1_tab exec: ;
 
 create .INST_2_tab ' 0F/00-3F , ' .NA1 , ' 0F/80-BF , ' .NA1 ,
-: .INST_2                       \\ 2-byte opcodes
+: .INST_2                       \ 2-byte opcodes
                 dup 6 rshift .INST_2_tab exec: ;
 
 
@@ -2473,7 +2473,7 @@ create .INST_2_tab ' 0F/00-3F , ' .NA1 , ' 0F/80-BF , ' .NA1 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 : .INST         ( op )
                 2 spaces 2 #out +!
                 NEXTB
@@ -2483,36 +2483,36 @@ create .INST_2_tab ' 0F/00-3F , ' .NA1 , ' 0F/80-BF , ' .NA1 ,
                                 NEXTB .INST_2
                             endof
                         $26 of
-                                .\" ES:\" 3 #out +! .Prefix
+                                ." ES:" 3 #out +! .Prefix
                             endof
                         $2E of
-                                .\" CS:\" 3 #out +! .Prefix
+                                ." CS:" 3 #out +! .Prefix
                             endof
                         $36 of
-                                .\" SS:\" 3 #out +! .Prefix
+                                ." SS:" 3 #out +! .Prefix
                             endof
                         $3E of
-                                .\" DS:\" 3 #out +! .Prefix
+                                ." DS:" 3 #out +! .Prefix
                             endof
 
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
                         $64 of
-                                .\" FS:\" 3 #out +! .Prefix
+                                ." FS:" 3 #out +! .Prefix
                             endof
                         $65 of
-                                .\" GS:\" 3 #out +! .Prefix
+                                ." GS:" 3 #out +! .Prefix
                             endof
                         $66 of
                                 Osize off
-                                .\" Operand_Size\" 12 #out +!
+                                ." Operand_Size" 12 #out +!
                                 .Prefix
                             endof
                         $67 of
                                 Asize off
-                                .\" Address_Size\" 12 #out +!
+                                ." Address_Size" 12 #out +!
                                 .Prefix
                             endof
 
@@ -2523,9 +2523,9 @@ create .INST_2_tab ' 0F/00-3F , ' .NA1 , ' 0F/80-BF , ' .NA1 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
                         $F0 of
-                                .\" LOCK\" 4 #out +! .Prefix
+                                ." LOCK" 4 #out +! .Prefix
                             endof
                         .INST_1
                         Osize on
@@ -2548,22 +2548,22 @@ create .INST_2_tab ' 0F/00-3F , ' .NA1 , ' 0F/80-BF , ' .NA1 ,
 
 
 
-\\                                                                    vandys
+\                                                                    vandys
 also forth definitions
 
-\\ Disassemble instructions .. from address
+\ Disassemble instructions .. from address
 
 : DIS           ( a -- )
    CP !
    base @ hex
-   0 begin   CP @           \\ save current addr for later
+   0 begin   CP @           \ save current addr for later
       #out off
-      cr .INST       \\ process the instruction
-      37 COL .\" \\\" 1 #out +!  \\ space over on output line
-      dup .H8         \\ pr addr of instr
-      CP @ over -     \\ using saved value,
-                      \\  calc length of the
-                      \\  instruction's code
+      cr .INST       \ process the instruction
+      37 COL ." \" 1 #out +!  \ space over on output line
+      dup .H8         \ pr addr of instr
+      CP @ over -     \ using saved value,
+                      \  calc length of the
+                      \  instruction's code
       2dup
 
 
@@ -2573,9 +2573,9 @@ also forth definitions
 
 
 
-\\                                                                    vandys
-      Space dump|     \\ dump in hex
-      69 COL %type    \\ and printable ascii
+\                                                                    vandys
+      Space dump|     \ dump in hex
+      69 COL %type    \ and printable ascii
       1+ dup 20 > if
       drop
       key [char] q = if true else 0 false then
@@ -2598,4 +2598,3 @@ also forth definitions
 
 
 
-"

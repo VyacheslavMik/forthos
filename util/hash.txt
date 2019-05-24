@@ -1,7 +1,7 @@
-"\\ Dynamic hash lists--definitions and allocation                     vandys
-\\ This file has a stillborn implementation of a list of values.  Set has
-\\  replaced it, so all that remains here are generic hashing functions
-\\  used by other places which use hash-based techniques.
+\ Dynamic hash lists--definitions and allocation                     vandys
+\ This file has a stillborn implementation of a list of values.  Set has
+\  replaced it, so all that remains here are generic hashing functions
+\  used by other places which use hash-based techniques.
 only extensions definitions
 
 37 constant (#INITHASH)
@@ -10,7 +10,7 @@ only extensions definitions
 0 [if]
 Collection -> subclass: Hash ivars:
    intcell #hash   intcell bucks   endivars
-\\ Each slot in \"bucks\" is a \"List\" instance of values
+\ Each slot in "bucks" is a "List" instance of values
 
 Hash -> class -> :method new ( self -- hash )   super-> new ( hash )
    (#INITHASH)   over Hash>#hash !
@@ -23,7 +23,7 @@ Hash -> class -> :method new ( self -- hash )   super-> new ( hash )
 
 
 
-\\ Dynamic hash lists--hashing                                        vandys
+\ Dynamic hash lists--hashing                                        vandys
 
 : (>hash) ( ptr -- u )   5 rshift   dup 16 rshift xor ;
 0 [if]
@@ -48,7 +48,7 @@ Hash -> class -> :method new ( self -- hash )   super-> new ( hash )
 
 
 
-\\ Dynamic hash lists--growth of bucket size                          vandys
+\ Dynamic hash lists--growth of bucket size                          vandys
 
 : prime? ( u -- bool )   dup 2/ 1+   3 do   dup i mod 0= if
       unloop drop false exit   then
@@ -73,7 +73,7 @@ Hash -> :method grow { self -- }
 
 
 
-\\ Dynamic hash lists--insertion                                      vandys
+\ Dynamic hash lists--insertion                                      vandys
 0 [if]
 Hash -> :method add { val self -- }
    val self (>bin) cells   self Hash>bucks @ + { 'bin }
@@ -98,16 +98,16 @@ Hash -> :method add { val self -- }
 
 
 
-\\ Dynamic hash lists--testing & display                              vandys
+\ Dynamic hash lists--testing & display                              vandys
 0 [if]
 Hash -> :method in? { key self -- T | F }   key self (>bin) ( buckidx )
    cells   self Hash>bucks @ + @   dup 0= if exit then
    { buck }   key buck -> in?   method;
 
-Hash -> :method . { self -- }   .\" Hash {\"
+Hash -> :method . { self -- }   ." Hash {"
    self Hash>bucks @   self Hash>#hash @ 0 do
       @+ ?dup if   ( 'buck+ buck ) -> .   then
-   loop   drop   .\" }\" method;
+   loop   drop   ." }" method;
 [then]
 
 
@@ -123,4 +123,3 @@ Hash -> :method . { self -- }   .\" Hash {\"
 
 
 
-"

@@ -1,7 +1,7 @@
-"\\ B-tree list                                                        vandys
-\\ Implementation of a B-tree whose leaves are Sets.  Cogbot
-\\  uses this in a number of places, so we implement this as
-\\  its own data structure here.
+\ B-tree list                                                        vandys
+\ Implementation of a B-tree whose leaves are Sets.  Cogbot
+\  uses this in a number of places, so we implement this as
+\  its own data structure here.
 only extensions definitions
 
 Btree -> subclass: BtSet
@@ -9,7 +9,7 @@ BtSet -> :method ! { val key self -- }
    key self super-> @ 0= if
       Set -> new   dup key self super-> !   then
    ( set ) val swap -> add method;
-: .btl ( 0 set key -- )   . .\" ->\"   -> .   drop ; scrLocal
+: .btl ( 0 set key -- )   . ." ->"   -> .   drop ; scrLocal
 BtSet -> :method .elems ( self -- )   0   ['] .btl   rot -> do method;
 : (empty!) ( 0 set -- )   nip   -> free ; scrLocal
 BtSet -> :method empty! ( self -- )   dup   0   ['] (empty!) rot -> do
@@ -23,7 +23,7 @@ BtSet -> :method empty! ( self -- )   dup   0   ['] (empty!) rot -> do
 
 
 
-\\ B-tree list                                                        vandys
+\ B-tree list                                                        vandys
 
 
 
@@ -48,4 +48,3 @@ BtSet -> :method empty! ( self -- )   dup   0   ['] (empty!) rot -> do
 
 
 
-"
