@@ -136,7 +136,7 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 
    drop ;
 
-
+: iderdsec ( n -- a-sec-n ) align here dup rot IDECMD_READ ideio ;
 
 
 
@@ -183,15 +183,40 @@ $20 constant IDECMD_READ   $30 constant IDECMD_WRITE
 16 constant part.size
 : partok? ( a -- ? )   510 + @   $FFFF and $AA55 = ;
 
+: parse-ext-part ( a-ebr -- ptype offset next-offset )
+   dup partok? if
+      sec>parts   dup part>type c@   swap dup part>start @
+      swap part.size +   dup part>type c@   0= if   drop 0
+         else   part>start @   then
+   else   drop 0 0 0
+   then ;
+
+
+
+
+
+
+
+
+\                                                                    vandys
+
 : init-ideoff ( -- )   ideoff off
-   align here   dup 0 IDECMD_READ ideio ( a-sec0 )
+   0 iderdsec ( a-sec0 )
    dup partok? 0= if   drop exit   then
    sec>parts   NFDISK 0 do   dup part>type c@ PT_FORTHOS = if
          part>start @   ideoff !   unloop exit   then
+      part.size +   loop drop
+
+   0 iderdsec
+   sec>parts   NFDISK 0 do   dup part>type c@ 5 = if
+         dup part>start @ dup   begin
+            dup iderdsec parse-ext-part
+            rot PT_FORTHOS = if
+               drop + ideoff !   2drop unloop exit   then
+            dup   while
+            nip nip over +   repeat
+         2drop   then
       part.size +   loop drop ;
-
-
-
 
 
 
