@@ -183,6 +183,23 @@ Words to access the needed fields in a partition; array of partitions
   overall size of one partition entry
 : partok? Tell if magic # is OK for partition sector
 
+: parse-ext-part From an EBR get:
+ partition type
+ starting sector offset from this EBR
+ starting sector offset of next EBR from start of extended partition
+
+
+
+
+
+
+
+
+
+
+
+
+
 : init-ideoff Read fdisk label, find our partition and set ideoff to
  make this the start of our blocks.  If can't find partition, clear
  ideoff to make "block" see the whole raw disk.
@@ -190,6 +207,14 @@ Words to access the needed fields in a partition; array of partitions
 
 
 
+ Not a primary partition, let's try again with extended ones
+
+ We will need the start of both the extended partition and the current EBR
+ Extract data from current EBR
+
+
+ Stop when there are no more logical partitions
+ Calc next EBR absolute sector number
 
 
 
